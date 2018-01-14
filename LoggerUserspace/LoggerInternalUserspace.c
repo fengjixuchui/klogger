@@ -6,8 +6,8 @@ size_t LInitializeParameters(char* FileName)
 	size_t Size = 4096;
 	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
 
-	Logger.FileLevel = LDBG;
-	Logger.OutputLevel = LDBG;
+	Logger.Level = LDBG;
+	Logger.OutputDbg = TRUE;
 	Logger.IdentificatorsSize = 10;
 	Logger.Timeout = 10 * 1000;
 	Logger.FlushPercent = 90;
@@ -17,20 +17,23 @@ size_t LInitializeParameters(char* FileName)
 
 DWORD WINAPI ThreadFunction(LPVOID Param)
 {
+	DWORD Result;
+	size_t Size;
+	const char* Buffer;
 	HANDLE Objects[2] = { Logger.DoneEvent, Logger.FlushEvent };
 	for (;;)
 	{
-		DWORD Result = WaitForMultipleObjects(2, Objects, FALSE, Logger.Timeout);
+		Result = WaitForMultipleObjects(2, Objects, FALSE, Logger.Timeout);
 
 		while (!RBEmpty(&Logger.RB))
 		{
-			size_t Size;
-			const char* Buffer = RBRead(&Logger.RB, &Size);
+			Buffer = RBRead(&Logger.RB, &Size);
 			if (!Buffer)
 				break;
 
 			WriteFile(Logger.File, Buffer, (DWORD)Size, NULL, NULL);
-			printf("%.*s", (int) Size, Buffer);
+			if (Logger.OutputDbg)
+				printf("%.*s", (int) Size, Buffer);
 		}
 		if (Result == WAIT_OBJECT_0 + 0) // DoneEvent
 			break;
@@ -82,12 +85,12 @@ void LDestroyObjects()
 	DeleteCriticalSection(&Logger.CriticalSection);
 }
 
-void LSpinlockLock()
+void LSpinlockAcquire()
 {
 	EnterCriticalSection(&Logger.CriticalSection);
 }
 
-void LSpinlockFree()
+void LSpinlockRelease()
 {
 	LeaveCriticalSection(&Logger.CriticalSection);
 }

@@ -22,19 +22,21 @@ typedef struct
 	size_t NumIdentificators;
 	size_t IdentificatorsSize;
 
-	LogLevel FileLevel;
-	LogLevel OutputLevel;
+	LogLevel Level;
+	BOOL OutputDbg;
 	unsigned Timeout;
 	unsigned FlushPercent;
 
 	HANDLE File;
-	HANDLE DoneEvent;
-	HANDLE FlushEvent;
 	HANDLE Thread;
 
 #ifdef _KERNEL_MODE
-	// TODO: spinlock
+	PVOID DoneEvent;
+	PVOID FlushEvent;
+	KSPIN_LOCK SpinLock;
 #else
+	HANDLE DoneEvent;
+	HANDLE FlushEvent;
 	CRITICAL_SECTION CriticalSection;
 #endif
 } LoggerStruct;
@@ -56,8 +58,8 @@ enum TimeParameters
 size_t LInitializeParameters(char* FileName);
 LErrorCode LInitializeObjects(char* FileName);
 void LDestroyObjects();
-void LSpinlockLock();
-void LSpinlockFree();
+void LSpinlockAcquire();
+void LSpinlockRelease();
 void LSetFlushEvent();
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS]);
 

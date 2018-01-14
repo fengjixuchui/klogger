@@ -26,6 +26,7 @@ static size_t CalculateReservedBytes();
 
 #define MAX_IDENTIFICATOR_NAME_SIZE 9
 #define MAX_IDENTIFICATOR_MEMORY_SIZE (MAX_IDENTIFICATOR_NAME_SIZE + 1)
+#define MIN_RING_BUFFER_SIZE 128
 
 #define LOG_FORMAT "%3s [%02u.%02u.%02u %02u:%02u:%02u:%03u] %-" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s | "
 #define LOG_FULL_FORMAT "\nLog is full! %" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s log message was clipped\n"
@@ -70,9 +71,9 @@ EXPORT_FUNC LErrorCode LInit()
 	if (Size == -1)
 		return LERROR_REGISTRY;
 	Logger.IdentificatorsSize = MAX(Logger.IdentificatorsSize, 1);
-	Logger.FileLevel = MIN(Logger.FileLevel, LOG_LEVEL_NONE);
-	Logger.OutputLevel = MIN(Logger.OutputLevel, LOG_LEVEL_NONE);
+	Logger.Level = MIN(Logger.Level, LOG_LEVEL_NONE);
 	Logger.FlushPercent = MAX(MIN(Logger.FlushPercent, 100), 1);
+	Size = MIN(Size, MIN_RING_BUFFER_SIZE);
 	
 	Logger.IdentificatorsSize++; // one identificator for logger
 	Logger.NumIdentificators = 1;
@@ -97,8 +98,9 @@ EXPORT_FUNC LErrorCode LInit()
 		return Code;
 	}
 
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevels: file%d; output%d\nTimeout: %dms", 
-		FileName, Logger.FlushPercent, (int)Logger.IdentificatorsSize - 1, (int)Logger.FileLevel, (int)Logger.OutputLevel, Logger.Timeout);
+	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms", 
+		FileName, Logger.FlushPercent, (int)Logger.IdentificatorsSize - 1, (int)Logger.Level, 
+		Logger.OutputDbg ? "YES" : "NO", Logger.Timeout);
 
 	Logger.Initialized = TRUE;
 	return LERROR_SUCCESS;
@@ -114,10 +116,10 @@ EXPORT_FUNC void LDestroy()
 	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
 
 	LDestroyObjects();
-	LSpinlockLock();
+	LSpinlockAcquire();
 	if (!Logger.Initialized)
 		return;
-	LSpinlockFree();
+	LSpinlockRelease();
 
 	MemoryFree(Logger.Identificators, Logger.IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 	RBDestroy(&Logger.RB);
@@ -133,7 +135,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	if (!Logger.Initialized)
 		return LHANDLE_INVALID;
 
-	LSpinlockLock();
+	LSpinlockAcquire();
 	FreeIdetificator = (size_t) -1;
 	for (i = 0; i < Logger.IdentificatorsSize; i++)
 	{
@@ -145,14 +147,14 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	}
 	if (FreeIdetificator == (size_t) -1)
 	{
-		LSpinlockFree();
+		LSpinlockRelease();
 		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
 	Logger.NumIdentificators--;
 	Logger.Identificators[(FreeIdetificator + 1) * MAX_IDENTIFICATOR_MEMORY_SIZE - 1] = 0;
 	strncpy(&Logger.Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE], Name, MAX_IDENTIFICATOR_MEMORY_SIZE);
-	LSpinlockFree();
+	LSpinlockRelease();
 	LOG(LHANDLE_LOGGER, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		&Logger.Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE]);
 	return (LHANDLE)FreeIdetificator;
@@ -171,10 +173,10 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 	LOG(LHANDLE_LOGGER, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&Logger.Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE]);
 
-	LSpinlockLock();
+	LSpinlockAcquire();
 	Logger.Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	Logger.NumIdentificators--;
-	LSpinlockFree();
+	LSpinlockRelease();
 }
 
 static void LogFull()
@@ -234,11 +236,13 @@ EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	}
 	if (Level >= LOG_LEVEL_NONE)
 		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+	if (Level > Logger.Level)
+		return;
 
 	LGetTime(Time);
 
 	GetLogLevelString(Level, LevelString);
-	LSpinlockLock();
+	LSpinlockAcquire();
 
 	if (RBFreeSize(&Logger.RB) * 100 / RBSize(&Logger.RB) >= Logger.FlushPercent)
 		LSetFlushEvent();
@@ -254,19 +258,19 @@ EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (Written < FormatSize)
 	{
 		LogFull();
-		LSpinlockFree();
+		LSpinlockRelease();
 		return;
 	}
 	Written = RBWrite(&Logger.RB, Str, Size);
 	if (Written < Size)
 	{
 		LogFull();
-		LSpinlockFree();
+		LSpinlockRelease();
 		return;
 	}
 
 	Written = RBWrite(&Logger.RB, NewLine, 1);
 	if (Written != 1)
 		LogFull();
-	LSpinlockFree();
+	LSpinlockRelease();
 }

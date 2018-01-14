@@ -1,0 +1,11 @@
+TARGETNAME=LoggerDriver
+TARGETPATH=.
+TARGETTYPE=DRIVER
+
+C_DEFINES=$(C_DEFINES) -D__EXPORT_DRIVER -D_KERNEL_MODE
+
+SOURCES= \
+	../Logger.c \
+	../RingBuffer.c \
+	Main.c \
+	LoggerInternalDriver.c

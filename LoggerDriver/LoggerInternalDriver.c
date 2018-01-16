@@ -19,7 +19,7 @@ size_t LInitializeParameters(char* FileName)
 KSTART_ROUTINE ThreadFunction;
 VOID ThreadFunction(PVOID Param)
 {
-	NTSTATUS Status;
+	NTSTATUS Status, Status2;
 	IO_STATUS_BLOCK sb;
 	size_t Size;
 	const char* Buffer;
@@ -34,6 +34,11 @@ VOID ThreadFunction(PVOID Param)
 	for (;;)
 	{
 		Status = KeWaitForMultipleObjects(2, Objects, WaitAny, Executive, KernelMode, FALSE, &Timeout, NULL);
+		if (!NT_SUCCESS(Status))
+		{
+			DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %d. Contunue", (int)Status);
+			continue;
+		}
 
 		while (!RBEmpty(&Logger.RB))
 		{
@@ -41,11 +46,13 @@ VOID ThreadFunction(PVOID Param)
 			if (!Buffer)
 				break;
 
-			ZwWriteFile(Logger.File, NULL, NULL, NULL, &sb, (PVOID)Buffer, (ULONG)Size, NULL, NULL);
+			Status2 = ZwWriteFile(Logger.File, NULL, NULL, NULL, &sb, (PVOID)Buffer, (ULONG)Size, NULL, NULL);
+			if (!NT_SUCCESS(Status2))
+				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d", (int)Status);
 			if (Logger.OutputDbg)
-				DbgPrint("%.*s", (int)Size, Buffer);
+				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)Size, Buffer);
 		}
-		if (NT_SUCCESS(Status) && Status == STATUS_WAIT_0 + 0) // DoneEvent
+		if (Status == STATUS_WAIT_0 + 0) // DoneEvent
 			break;
 	}
 }

@@ -24,6 +24,11 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 	for (;;)
 	{
 		Result = WaitForMultipleObjects(2, Objects, FALSE, Logger.Timeout);
+		if (Result == WAIT_FAILED)
+		{
+			printf("WaitForMultipleObjects failed. Continue\n");
+			continue;
+		}
 
 		while (!RBEmpty(&Logger.RB))
 		{
@@ -31,7 +36,10 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 			if (!Buffer)
 				break;
 
-			WriteFile(Logger.File, Buffer, (DWORD)Size, NULL, NULL);
+			if (!WriteFile(Logger.File, Buffer, (DWORD)Size, NULL, NULL))
+			{
+				printf("WriteFile failed\n");
+			}
 			if (Logger.OutputDbg)
 				printf("%.*s", (int) Size, Buffer);
 		}

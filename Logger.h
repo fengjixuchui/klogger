@@ -51,9 +51,10 @@ typedef enum
 
 EXPORT_FUNC LErrorCode LInit();
 EXPORT_FUNC void LDestroy();
+EXPORT_FUNC BOOL LIsInitialized();
 EXPORT_FUNC LHANDLE LOpen(const char* Name);
 EXPORT_FUNC void LClose(LHANDLE Handle);
-EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
+EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
 
 #define MAX_LOG_SIZE 8192
 #define LOG(Handle,Level,Format,...) \

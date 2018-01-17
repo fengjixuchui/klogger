@@ -127,6 +127,11 @@ EXPORT_FUNC void LDestroy()
 	Logger.Initialized = FALSE;
 }
 
+EXPORT_FUNC BOOL LIsInitialized()
+{
+	return Logger.Initialized;
+}
+
 EXPORT_FUNC LHANDLE LOpen(const char* Name)
 {
 	size_t FreeIdetificator;
@@ -216,7 +221,7 @@ static void GetLogLevelString(LogLevel Level, char* LevelString)
 }
 
 #define MAX_FORMAT_SIZE 128
-EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size)
+EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size)
 {
 	BOOL InvalidIdentificator = FALSE;
 	unsigned Time[NUM_TIME_PARAMETERS];
@@ -228,7 +233,7 @@ EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	char* NewLine = "\n";
 
 	if (!Logger.Initialized)
-		return;
+		return FALSE;
 	if (Handle >= Logger.IdentificatorsSize)
 	{
 		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
@@ -237,7 +242,7 @@ EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (Level >= LOG_LEVEL_NONE)
 		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
 	if (Level > Logger.Level)
-		return;
+		return TRUE;
 
 	LGetTime(Time);
 
@@ -252,25 +257,30 @@ EXPORT_FUNC void LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	FormatSize = snprintf(Format, MAX_FORMAT_SIZE, LOG_FORMAT, LevelString, Time[TIME_DAY], Time[TIME_HOUR], Time[TIME_YEAR],
 		Time[TIME_HOUR], Time[TIME_MINUTE], Time[TIME_SECOND], Time[TIME_MILLISECONDS], Identificator);
 	if (FormatSize >= MAX_FORMAT_SIZE)
-		return; // log format overflow. In this case we can't call LOG. Just return
+		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
 	Written = RBWrite(&Logger.RB, Format, FormatSize);
 	if (Written < FormatSize)
 	{
 		LogFull();
 		LSpinlockRelease();
-		return;
+		return FALSE;
 	}
 	Written = RBWrite(&Logger.RB, Str, Size);
 	if (Written < Size)
 	{
 		LogFull();
 		LSpinlockRelease();
-		return;
+		return FALSE;
 	}
 
 	Written = RBWrite(&Logger.RB, NewLine, 1);
 	if (Written != 1)
+	{
 		LogFull();
+		LSpinlockRelease();
+		return FALSE;
+	}
 	LSpinlockRelease();
+	return TRUE;
 }

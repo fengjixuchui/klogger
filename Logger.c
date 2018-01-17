@@ -52,7 +52,11 @@ static size_t CalculateReservedBytes()
 	return ReservedBytes;
 }
 
+#ifdef _KERNEL_MODE
+EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath)
+#else
 EXPORT_FUNC LErrorCode LInit()
+#endif
 {
 	size_t ReservedBytes;
 	char FileName[MAX_LOG_FILENAME_SIZE];
@@ -67,7 +71,11 @@ EXPORT_FUNC LErrorCode LInit()
 	if (ReservedBytes == -1)
 		return LERROR_INTERNAL;
 
+#ifdef _KERNEL_MODE
+	Size = LInitializeParameters(FileName, RegPath);
+#else
 	Size = LInitializeParameters(FileName);
+#endif
 	if (Size == -1)
 		return LERROR_REGISTRY;
 	Logger.IdentificatorsSize = MAX(Logger.IdentificatorsSize, 1);

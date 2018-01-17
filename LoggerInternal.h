@@ -55,7 +55,11 @@ enum TimeParameters
 	NUM_TIME_PARAMETERS
 };
 
+#ifdef _KERNEL_MODE
+size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath);
+#else
 size_t LInitializeParameters(char* FileName);
+#endif
 LErrorCode LInitializeObjects(char* FileName);
 void LDestroyObjects();
 void LSpinlockAcquire();

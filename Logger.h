@@ -49,7 +49,11 @@ typedef enum
 	#define EXPORT_FUNC __declspec (dllimport)
 #endif
 
+#ifdef _KERNEL_MODE
+EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath);
+#else
 EXPORT_FUNC LErrorCode LInit();
+#endif
 EXPORT_FUNC void LDestroy();
 EXPORT_FUNC BOOL LIsInitialized();
 EXPORT_FUNC LHANDLE LOpen(const char* Name);

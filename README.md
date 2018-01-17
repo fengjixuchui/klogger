@@ -2,7 +2,7 @@
 Kernel logger driver for all IRQL levels
 
 ## Project structure
-VS Solution has 3 projects:
+VS 2017 Solution has 3 projects:
  * **LoggerUserspace** - userspace logger for testing
  * **LoggerDriver** - klogger export driver
  * **LoggerTestDriver** - driver for testing klogger

@@ -16,20 +16,33 @@ typedef int BOOL;
 typedef struct
 {
 	size_t Size;
+	size_t head;
+	char* tail;
 	char* Data;
-	size_t Begin;
-	size_t End;
-	size_t ReservedBytes;
 
 } RingBuffer;
 
+typedef struct {
+	size_t size;
+	int written;
+} RBHeader;
+
+typedef struct {
+	void* current_ptr;
+	RBHeader* msg_header;
+	size_t symb_left;
+} RBMSGHandle;
+
+
 BOOL RBInit(RingBuffer* RB, size_t Size, size_t ReservedBytes);
 void RBDestroy(RingBuffer* RB);
-BOOL RBEmpty(const RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
-size_t RBFreeSize(const RingBuffer* RB);
-const char* RBRead(RingBuffer* RB, size_t* Size);
-size_t RBWrite(RingBuffer* RB, const char* Str, size_t Size);
-size_t RBWriteReserved(RingBuffer* RB, const char* Str, size_t Size);
+RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size);
+size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size);
+void RBHandleClose(RBMSGHandle* handle);
+RBHeader* _RBGetBuffer(RingBuffer* RB, size_t size);
+void* _RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
+void* RBWrite(RingBuffer* RB, const char* str, size_t size);
 
+const char* RBRead(RingBuffer* RB, size_t* Size);
 #endif // __RINGBUFFER__

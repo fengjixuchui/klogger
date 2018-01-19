@@ -8,10 +8,9 @@ BOOL RBInit(RingBuffer* RB, size_t Size, size_t ReservedBytes)
 	if (Size <= ReservedBytes || Size == 0)
 		return FALSE;
 	
-	RB->Begin = 0;
-	RB->End = 0;
-	RB->ReservedBytes = ReservedBytes;
 	RB->Size = Size;
+	RB->head = 0;
+	RB->tail = 0;
 
 	RB->Data = MemoryAlloc(Size);
 	if (!RB->Data)
@@ -29,13 +28,6 @@ void RBDestroy(RingBuffer* RB)
 	RB->Data = NULL;
 }
 
-BOOL RBEmpty(const RingBuffer* RB)
-{
-	if (!RB)
-		return TRUE;
-
-	return RB->Begin == RB->End;
-}
 
 size_t RBSize(const RingBuffer* RB)
 {
@@ -45,91 +37,104 @@ size_t RBSize(const RingBuffer* RB)
 	return RB->Size;
 }
 
-size_t RBFreeSize(const RingBuffer* RB)
-{
-	size_t FreeSize;
-	if (!RB)
-		return 0;
-
-	if (RB->Begin < RB->End)
-		FreeSize = (RB->Size - RB->End) + RB->Begin;
-	else if (RB->Begin > RB->End)
-		FreeSize = RB->Begin - RB->End;
-	else
-		FreeSize = RB->Size;
-
-	return FreeSize;
-}
 
 const char* RBRead(RingBuffer* RB, size_t* Size)
 {
 	size_t Begin;
 
-	if (!RB)
-		return NULL;
 
-	if (RBEmpty(RB))
-		return NULL;
+}
 
-	if (RB->Begin >= RB->End)
-	{
-		Begin = RB->Begin;
-		RB->Begin = 0;
-		if (Size)
-			*Size = RB->Size - Begin;
-		return &RB->Data[Begin];
+static void* _RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start)
+{
+	char* end;
+
+	if (size > RB->Data + RB->Size - start) {
+		int length = RB->Data + RB->Size - start;
+		memcpy(start, Str, length);
+		memcpy(RB->Data, Str + length, size - length);
+		end = RB->Data + size - length;
 	}
 	else
 	{
-		Begin = RB->Begin;
-		RB->Begin = RB->End;
-		if (Size)
-			*Size = RB->End - Begin;
-		if (RB->Begin == RB->Size)
-			RB->Begin = 0;
-		if (RB->End == RB->Size)
-			RB->End = 0;
-		return &RB->Data[Begin];
-	}
-}
-
-static size_t RBWriteInternal(RingBuffer* RB, const char* Str, size_t Size, size_t FreeSizeNeeded)
-{
-	size_t FreeSize = RBFreeSize(RB);
-
-	if (FreeSize <= FreeSizeNeeded)
-		return 0;
-	if (Size > FreeSize - FreeSizeNeeded)
-		Size = FreeSize - FreeSizeNeeded;
-
-	if (RB->Begin > RB->End)
-	{
-		memcpy(&RB->Data[RB->End], Str, Size);
-		RB->End += Size;
-	}
-	else
-	{
-		memcpy(&RB->Data[RB->End], Str, RB->Size - RB->End);
-		if (RB->Size - RB->End < Size)
-			memcpy(RB->Data, &Str[RB->Size - RB->End], Size - (RB->Size - RB->End));
-		RB->End += Size;
-		if (RB->End > RB->Size)
-			RB->End -= RB->Size;
+		memcpy(start, Str, size);
+		end = start + size;
 	}
 
-	return Size;
+	return end;
 }
 
-size_t RBWrite(RingBuffer* RB, const char* Str, size_t Size)
-{
-	if (!RB)
+
+
+RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
+	
+	if (!RB || !size)
 		return 0;
-	return RBWriteInternal(RB, Str, Size, RB->ReservedBytes);
+
+	size += sizeof(RBMSGHandle);
+
+	//Check free space
+
+	if (size > RB->Size)
+		return 0;
+
+	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle));
+	memset(handle, 0, sizeof(RBMSGHandle));
+	
+	RBHeader* hdr = _RBGetBuffer(RB, size);
+	
+	hdr->size = size;
+	handle->current_ptr = hdr + sizeof(RBHeader);
+	handle->msg_header = hdr;
+	handle->symb_left = size;
+
+	return handle;
 }
 
-size_t RBWriteReserved(RingBuffer* RB, const char* Str, size_t Size)
-{
-	if (!RB)
+
+RBHeader* _RBGetBuffer(RingBuffer* RB, size_t size) {  //Beware, it does not check free space
+	//acquire spinlock
+
+	RBHeader* hdr = (RBHeader*)(RB->Data + RB->head);
+	hdr->written = 0;
+	RB->head = (RB->head + size) % RB->Size;
+
+	//release spinlock
+
+	return hdr;
+}
+
+
+size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
+
+	if (!RB || !str)
 		return 0;
-	return RBWriteInternal(RB, Str, Size, 0);
+
+	RBHeader* hdr = _RBGetBuffer(RB, size);
+	_RBWriteFrom(RB, str, size, (char*)hdr + sizeof(RBHeader));
+	hdr->written = 1;
+
+	return size;
+}
+
+
+size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size) {
+	
+	if (!RB || handle)
+		return 0;
+
+	if (size > handle->symb_left)
+		return 0;
+
+	handle->current_ptr = _RBWriteFrom(RB, str, size, handle->current_ptr);
+	handle->symb_left = handle->symb_left - size;
+
+	return size;
+}
+
+void RBHandleClose(RBMSGHandle* handle) {
+	handle->msg_header->written = 1;
+
+	MemoryFree(handle);
+	return;
 }

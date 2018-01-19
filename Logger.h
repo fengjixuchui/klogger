@@ -43,6 +43,12 @@ typedef enum
 	LERROR_CREATE_THREAD
 } LErrorCode;
 
+typedef struct {
+	size_t size;
+	int written;
+} RMSGHeader;
+
+
 #ifdef __EXPORT_DRIVER
 	#define EXPORT_FUNC __declspec (dllexport)
 #else

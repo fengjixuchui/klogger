@@ -267,6 +267,10 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (FormatSize >= MAX_FORMAT_SIZE)
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
+	
+	size_t final_size = FormatSize + Size + 1;
+	
+
 	Written = RBWrite(&Logger.RB, Format, FormatSize);
 	if (Written < FormatSize)
 	{

@@ -13,6 +13,12 @@
 
 #define MAX_LOG_FILENAME_SIZE 1024
 
+struct buf_header {
+	size_t size;
+	int written;
+};
+
+
 typedef struct
 {
 	BOOL Initialized;

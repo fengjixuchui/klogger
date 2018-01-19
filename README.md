@@ -26,7 +26,6 @@ BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
  * Andrey Zhadchenko - [azhadchenko](https://github.com/azhadchenko)
 
 ## TODOs
- * Fix problems with segfault
  * Fix problems with synchronization
  * Add LoggerTestDriver
  * Implement registry parse in `LInitializeParameters`

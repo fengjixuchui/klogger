@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.27130.2010
+VisualStudioVersion = 15.0.27004.2009
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LoggerUserspace", "LoggerUserspace\LoggerUserspace.vcxproj", "{1E35A565-D439-4AF2-A014-9CC0C1484C89}"
 EndProject
@@ -39,7 +39,6 @@ Global
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|ARM64.Deploy.0 = Debug|ARM64
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x64.ActiveCfg = Debug|x64
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x64.Build.0 = Debug|x64
-		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x64.Deploy.0 = Debug|x64
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x86.ActiveCfg = Debug|Win32
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x86.Build.0 = Debug|Win32
 		{98894D3D-EBD4-4483-B700-FB5452088FAB}.Debug|x86.Deploy.0 = Debug|Win32

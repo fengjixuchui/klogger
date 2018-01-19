@@ -124,11 +124,11 @@ EXPORT_FUNC void LDestroy()
 	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
 
 	LDestroyObjects();
-	LSpinlockAcquire();
+/*	LSpinlockAcquire();
 	if (!Logger.Initialized)
 		return;
 	LSpinlockRelease();
-
+*/
 	MemoryFree(Logger.Identificators, Logger.IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 	RBDestroy(&Logger.RB);
 

@@ -4,7 +4,7 @@
 size_t LInitializeParameters(char* FileName)
 {
 	size_t Size = 4096;
-	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
+	strncpy(FileName, "D:\\tmp\\log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger.Level = LDBG;
 	Logger.OutputDbg = TRUE;

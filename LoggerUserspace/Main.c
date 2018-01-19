@@ -41,6 +41,7 @@ int main()
 	LClose(handle1);
 	LClose(handle2);
 
-	Sleep(100000);
+	//Sleep(100000);
 	LDestroy();
+
 }

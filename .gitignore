@@ -7,3 +7,5 @@ LoggerDriver/objchk_win7_amd64
 LoggerDriver/buildchk_win7_amd64.log
 LoggerUserspace/x64
 x64
+Debug/
+LoggerUserspace/Debug/

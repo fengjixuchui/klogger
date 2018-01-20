@@ -3,7 +3,7 @@
 
 #ifdef _KERNEL_MODE
 #define GetIRQL() KeGetCurrentIrql()
-#define SpinLockObject KSPIN_LOCK
+
 
 //Completely not done
 
@@ -17,7 +17,7 @@
 
 #include "windows.h"
 
-#define SpinLockObject CRITICAL_SECTION
+
 #define InitSpinLock(spinlock)				InitializeCriticalSection(spinlock)
 #define AcquireSpinLock(spinlock, irql)		EnterCriticalSection(spinlock)
 #define ReleaseSpinLock(spinlock, irql)		LeaveCriticalSection(spinlock)
@@ -25,46 +25,25 @@
 
 #define PASSIVE_LEVEL 0
 #define GetIRQL() 0
-#define KIRQL char
+
 
 #endif	
 
 
-struct RingBuffer_
-{
-	size_t Size;
-	size_t head;
-	size_t tail;
-	char* Data;
 
-	SpinLockObject spinlock;
+char* RBGetBuffer(RingBuffer* RB, size_t size);
+char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
+char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
 
-	size_t carry_symbols;
-	char wait_at_passive;
-
-};
-
-typedef struct {
-	size_t size;
-	int written;
-} RBHeader;
-
-struct RBMSGHandle_ {
-	void* current_ptr;
-	RBHeader* msg_header;
-	size_t symb_left;
-};
-
-RBHeader* RBGetBuffer(RingBuffer* RB, size_t size);
-void* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
+#define READHDR(hdr, from) RBReadFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
+#define WRITEHDR(hdr, from) RBWriteFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 
 
-
-BOOL RBInit(RingBuffer* RB, size_t Size, size_t ReservedBytes, char wait_at_passive)
+BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive)
 {
 	if (!RB)
 		return FALSE;
-	if (Size <= ReservedBytes || Size == 0)
+	if (Size == 0)
 		return FALSE;
 	
 	RB->Size = Size;
@@ -102,8 +81,14 @@ size_t RBSize(const RingBuffer* RB)
 	return RB->Size;
 }
 
+size_t RBFreeSize(const RingBuffer* RB) {
+	size_t free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
+	free_space = free_space + RB->Size * (RB->head == RB->tail);
+	return free_space;
+}
 
-const char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
+
+char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
 {
 	if (!RB || !Size)
 		return 0;
@@ -115,33 +100,45 @@ const char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
 		return RB->Data;
 	}
 
-	RBHeader* hdr = RB->Data + RB->tail;
-	char* msg = (char*)hdr + sizeof(RBHeader);
+	RBHeader hdr;
+	READHDR(&hdr, RB->Data + RB->tail);
+	if (hdr.written == 0)
+		return 0;
 
-	if ((RB->tail + hdr->size) > RB->Size) {
-		RB->carry_symbols = hdr->size - (RB->Size - RB->tail);
-		*Size = hdr->size - RB->carry_symbols;
+	char* msg = RB->Data + RB->tail + sizeof(RBHeader);
+
+	if ((RB->tail + hdr.size) > RB->Size) {
+		RB->carry_symbols = hdr.size - (RB->Size - RB->tail);
+		*Size = hdr.size - RB->carry_symbols;
+
+		if (*Size <= sizeof(RBHeader)) {  //Header is split!
+			msg = RB->Data + sizeof(RBHeader) - *Size;
+			*Size = hdr.size - sizeof(RBHeader);
+			RB->carry_symbols = 0;
+			return msg;
+		}
 	}
 	else
-		*Size = hdr->size;
+		*Size = hdr.size;
 	
 	*Size = *Size - sizeof(RBHeader);
 	return msg;
 }
 
 void RBRelease(RingBuffer* RB, size_t size) {
-	RB->tail = (RB->tail + size) % RB->Size;
+	int add = (RB->carry_symbols) ? 0 : sizeof(RBHeader);
+	RB->tail = (RB->tail + size + add) % RB->Size;
 }
 
-static void* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start)
+static char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start)
 {
 	char* end;
+	size_t left_length = (size_t)(RB->Data + RB->Size - (size_t)start);
 
-	if (size > (RB->Data + RB->Size - start)) {
-		int length = RB->Data + RB->Size - start;
-		memcpy(start, Str, length);
-		memcpy(RB->Data, Str + length, size - length);
-		end = RB->Data + size - length;
+	if (size > left_length) {
+		memcpy(start, Str, left_length);
+		memcpy(RB->Data, Str + left_length, size - left_length);
+		end = RB->Data + size - left_length;
 	}
 	else
 	{
@@ -152,25 +149,41 @@ static void* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* sta
 	return end;
 }
 
+char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start) {
+	char* end;
+	size_t left_length = (size_t)(RB->Data + RB->Size - (size_t)start);
+
+	if (size > left_length) {
+		memcpy(dst, start, left_length);
+		memcpy(dst + left_length, RB->Data, size - left_length);
+		end = RB->Data + size - left_length;
+	}
+	else
+	{
+		memcpy(dst, start, size);
+		end = start + size;
+	}
+
+	return end;
+}
 
 
-RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
+RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) { //not debugged
 	
 	if (!RB || !size)
 		return 0;
 
-	size += sizeof(RBMSGHandle);
-
-
 	if (size > RB->Size)
 		return 0;
 
-	RBHeader* hdr = RBGetBuffer(RB, size, -1);
+	char* hdr = RBGetBuffer(RB, size);
+	if (hdr == 0)
+		return 0;
 
 	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle));
 	memset(handle, 0, sizeof(RBMSGHandle));
 		
-	handle->current_ptr = hdr + sizeof(RBHeader);
+	handle->current_ptr = RB->Data + ((size_t)(hdr + sizeof(RBHeader) - (size_t)RB->Data) % RB->Size);
 	handle->msg_header = hdr;
 	handle->symb_left = size;
 
@@ -178,7 +191,7 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
 }
 
 
-RBHeader* RBGetBuffer(RingBuffer* RB, size_t size) {  
+char* RBGetBuffer(RingBuffer* RB, size_t size) {  
 	
 	KIRQL irql;
 
@@ -187,8 +200,9 @@ RBHeader* RBGetBuffer(RingBuffer* RB, size_t size) {
 		//Infinitely waiting for free space (not sure if its wise)
 
 
-		size_t reqired_space = size + sizeof(RBHeader);  //2x header - HDR_MSG_NEXTHDR
-		size_t free_space = (RB->head > RB->tail) ? RB->head - RB->tail : RB->head + RB->Size - RB->tail;
+		size_t reqired_space = size + 2 * sizeof(RBHeader);  //2x header - HDR_MSG_NEXTHDR
+		size_t free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
+		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
 		if (reqired_space > free_space) {
 			if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
@@ -200,7 +214,8 @@ RBHeader* RBGetBuffer(RingBuffer* RB, size_t size) {
 		//spinlock asquire
 		AcquireSpinLock(&RB->spinlock, &irql);
 
-		free_space = (RB->head > RB->tail) ? RB->head - RB->tail : RB->head + RB->Size - RB->tail;
+		free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
+		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
 		if (reqired_space > free_space) {
 			ReleaseSpinLock(&RB->spinlock, &irql);
@@ -214,19 +229,23 @@ RBHeader* RBGetBuffer(RingBuffer* RB, size_t size) {
 		
 		break;
 	}
-		
+	
+	char* old_head = RB->Data + RB->head;
 
-	RBHeader* hdr = (RBHeader*)(RB->Data + RB->head);
-	hdr->size = size;
-	RB->head = (RB->head + size) % RB->Size;
+	RBHeader local_hdr = { 0 };
+	local_hdr.size = size + sizeof(RBHeader);
+	WRITEHDR(&local_hdr, old_head);
 
-	RBHeader* next_hdr = (RBHeader*)(RB->Data + RB->head);
-	hdr->written = 0;			//Assuring reader will never encounter trash after msg, instead he will see header with not written message
-	hdr->size = 0;
+	RB->head = (RB->head + size + sizeof(RBHeader)) % RB->Size;
+	
+	//Assuring reader will never encounter trash after msg, instead he will see header with not written message
+	local_hdr.written = 0;
+	local_hdr.size = 0;
+	WRITEHDR(&local_hdr, RB->Data + RB->head);
 
 	ReleaseSpinLock(&RB->spinlock, &irql);
 
-	return hdr;
+	return old_head;
 }
 
 
@@ -235,9 +254,17 @@ size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
 	if (!RB || !str)
 		return 0;
 
-	RBHeader* hdr = RBGetBuffer(RB, size);
-	RBWriteFrom(RB, str, size, (char*)hdr + sizeof(RBHeader));
-	hdr->written = 1;
+	RBHeader local_hdr = { 0 };
+	local_hdr.size = size + sizeof(RBHeader);
+	local_hdr.written = 1;
+
+	char* hdr = RBGetBuffer(RB, size);
+	if (hdr == 0)
+		return 0;
+
+	size_t data_start = ((size_t)hdr - (size_t)RB->Data + sizeof(RBHeader)) % RB->Size;
+	RBWriteFrom(RB, str, size, RB->Data + data_start);
+	WRITEHDR(&local_hdr, hdr);
 
 	return size;
 }
@@ -245,21 +272,28 @@ size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
 
 size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size) {
 	
-	if (!RB || handle)
+	if (!RB || !handle)
 		return 0;
 
 	if (size > handle->symb_left)
 		return 0;
 
-	handle->current_ptr = _RBWriteFrom(RB, str, size, handle->current_ptr);
+	handle->current_ptr = RBWriteFrom(RB, str, size, handle->current_ptr);
 	handle->symb_left = handle->symb_left - size;
 
 	return size;
 }
 
-void RBHandleClose(RBMSGHandle* handle) {
-	handle->msg_header->written = 1;
+void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle) {
+	if (!RB || !handle)
+		return 0;
 
-	MemoryFree(handle);
+	RBHeader local_header;
+
+	READHDR(&local_header, handle->msg_header);
+	local_header.written = 1;
+	WRITEHDR(&local_header, handle->msg_header);
+
+	MemoryFree(handle, sizeof(RBMSGHandle));
 	return;
 }

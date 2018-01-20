@@ -26,7 +26,7 @@ static size_t CalculateReservedBytes();
 
 #define MAX_IDENTIFICATOR_NAME_SIZE 9
 #define MAX_IDENTIFICATOR_MEMORY_SIZE (MAX_IDENTIFICATOR_NAME_SIZE + 1)
-#define MIN_RING_BUFFER_SIZE 128
+#define MIN_RING_BUFFER_SIZE 1024
 
 #define LOG_FORMAT "%3s [%02u.%02u.%02u %02u:%02u:%02u:%03u] %-" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s | "
 #define LOG_FULL_FORMAT "\nLog is full! %" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s log message was clipped\n"
@@ -92,7 +92,7 @@ EXPORT_FUNC LErrorCode LInit()
 		Logger.Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger.Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger.RB, Size, ReservedBytes))
+	if (!RBInit(&Logger.RB, Size, 1))
 	{
 		MemoryFree(Logger.Identificators, Logger.IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		return LERROR_MEMORY_ALLOC;
@@ -106,11 +106,11 @@ EXPORT_FUNC LErrorCode LInit()
 		return Code;
 	}
 
+	Logger.Initialized = TRUE;
 	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms", 
 		FileName, Logger.FlushPercent, (int)Logger.IdentificatorsSize - 1, (int)Logger.Level, 
 		Logger.OutputDbg ? "YES" : "NO", Logger.Timeout);
 
-	Logger.Initialized = TRUE;
 	return LERROR_SUCCESS;
 }
 
@@ -198,7 +198,7 @@ static void LogFull()
 	size_t Size = snprintf(Str, LOG_FULL_STRING_SIZE, LOG_FULL_FORMAT, Logger.Identificators);
 	if (Size > LOG_FULL_STRING_SIZE)
 		return; // log is full. just return
-	RBWriteReserved(&Logger.RB, Str, Size);
+	RBWrite(&Logger.RB, Str, Size);
 }
 
 static void GetLogLevelString(LogLevel Level, char* LevelString)
@@ -249,15 +249,14 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	}
 	if (Level >= LOG_LEVEL_NONE)
 		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
-	if (Level > Logger.Level)
+	if (Level < Logger.Level)
 		return TRUE;
 
 	LGetTime(Time);
 
 	GetLogLevelString(Level, LevelString);
-	LSpinlockAcquire();
 
-	if (RBFreeSize(&Logger.RB) * 100 / RBSize(&Logger.RB) >= Logger.FlushPercent)
+	if ((RBFreeSize(&Logger.RB) * 100 / RBSize(&Logger.RB)) <= Logger.FlushPercent)
 		LSetFlushEvent();
 
 	if (!InvalidIdentificator)
@@ -267,32 +266,20 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (FormatSize >= MAX_FORMAT_SIZE)
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
-	
-	size_t final_size = FormatSize + Size + 1;
-	
+	size_t format_len = strlen(Format);
+	size_t str_len = strlen(Str);
 
-	Written = RBWrite(&Logger.RB, Format, FormatSize);
-	if (Written < FormatSize)
-	{
-		LogFull();
-		LSpinlockRelease();
-		return FALSE;
-	}
-	Written = RBWrite(&Logger.RB, Str, Size);
-	if (Written < Size)
-	{
-		LogFull();
-		LSpinlockRelease();
-		return FALSE;
-	}
+	size_t final_size = format_len + str_len + 2;
+	
+	RBMSGHandle* hndl = RBReceiveHandle(&Logger.RB, final_size);
+	Written = RBHandleWrite(&Logger.RB, hndl, Format, format_len);
+	Written = RBHandleWrite(&Logger.RB, hndl, Str, str_len);
+	Written = RBHandleWrite(&Logger.RB, hndl, NewLine, 2);
+	RBHandleClose(&Logger.RB, hndl);
 
-	Written = RBWrite(&Logger.RB, NewLine, 1);
-	if (Written != 1)
-	{
-		LogFull();
-		LSpinlockRelease();
-		return FALSE;
-	}
-	LSpinlockRelease();
 	return TRUE;
+}
+
+EXPORT_FUNC void LFlush() {
+	LSetFlushEvent();
 }

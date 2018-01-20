@@ -1,21 +1,55 @@
 #include <Windows.h>
 #include "../RingBuffer.h"
 #include "../Logger.h"
+#include "assert.h"
 
-void RBTest()
+#define TEST_STR "1234567890-"
+#define TEST_STR2 "0987654321"
+
+void RBTest()  //debugged
 {
 	RingBuffer RB;
-	RBInit(&RB, 32, 4);
+	RBInit(&RB, 67, 0);
 
 	for (;;)
 	{
-		RBWrite(&RB, "1234567890", 10);
+		assert(RBWrite(&RB, TEST_STR, sizeof(TEST_STR)));
 
-		while (!RBEmpty(&RB))
+		char* ptr;
+		size_t size;
+
+		while (ptr = RBGetReadPTR(&RB, &size))
 		{
-			size_t Size = 0;
-			const char* Str = RBRead(&RB, &Size);
-			printf("Out (%d): %s\n", (int)Size, Str);
+			printf("Out (%d): %.*s\n", (int)size, (int)size, ptr);
+			RBRelease(&RB, size);
+		}
+		system("pause");
+	}
+
+	RBDestroy(&RB);
+}
+
+void RBHandleTest()  //debugged
+{
+	RingBuffer RB;
+	RBInit(&RB, 128, 1);
+
+	for (;;)
+	{
+		size_t Written;
+		RBMSGHandle* hndl = RBReceiveHandle(&RB, sizeof(TEST_STR)+sizeof(TEST_STR2));
+		Written = RBHandleWrite(&RB, hndl, TEST_STR, sizeof(TEST_STR) - 1);
+		Written = RBHandleWrite(&RB, hndl, TEST_STR2, sizeof(TEST_STR2) - 1);
+		Written = RBHandleWrite(&RB, hndl, " ", 2);
+		RBHandleClose(&RB, hndl);
+
+		char* ptr;
+		size_t size;
+
+		while (ptr = RBGetReadPTR(&RB, &size))
+		{
+			printf("Out (%d): %.*s\n", (int)size, (int)size, ptr);
+			RBRelease(&RB, size);
 		}
 		system("pause");
 	}
@@ -25,6 +59,7 @@ void RBTest()
 
 int main()
 {
+	
 	LErrorCode Code = LInit();
 	if (Code != LERROR_SUCCESS)
 	{
@@ -35,13 +70,21 @@ int main()
 	LHANDLE handle1 = LOpen("HANDLE1");
 	LHANDLE handle2 = LOpen("HANDLE2");
 
-	LOG(handle1, LDBG, "Debug message %d", 1);
-	LOG(handle2, LDBG, "Debug message %d", 2);
+	for (int i = 0; i < 20; i++) {
+		LOG(handle1, LDBG, "Debug message %d", i*2);
+		LOG(handle2, LDBG, "Debug message %d", i*2+1);
+	}
 
 	LClose(handle1);
 	LClose(handle2);
 
 	//Sleep(100000);
+	Sleep(1000);
+	LFlush();
 	LDestroy();
+	
 
+	system("pause");
+	
+	//RBHandleTest();
 }

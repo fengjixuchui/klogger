@@ -52,6 +52,56 @@ static BOOL GetRegValueDword(HANDLE KeyHandle, PCWSTR ValueName, PULONG pValue, 
 	return TRUE;
 }
 
+static BOOL GetRegValueString(HANDLE KeyHandle, PCWSTR ValueName, PWSTR pValue, DWORD ValueMaxSize, 
+	PCWSTR DefaultValue, DWORD DefaultValueSize)
+{
+	NTSTATUS                       status;
+	KEY_VALUE_PARTIAL_INFORMATION  *pInformation;
+	ULONG                          uInformationSize;
+	UNICODE_STRING	               UnicodeValueName;
+
+	RtlInitUnicodeString(&UnicodeValueName, ValueName);
+
+	uInformationSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + ValueMaxSize;
+
+	pInformation = MemoryAlloc(uInformationSize, PagedPool);
+	if (pInformation == NULL)
+	{
+		ZwClose(KeyHandle);
+		return FALSE;
+	}
+	status = ZwQueryValueKey(KeyHandle, &UnicodeValueName, KeyValuePartialInformation,
+		pInformation, uInformationSize, &uInformationSize);
+
+	if (!NT_SUCCESS(status) && status != STATUS_OBJECT_NAME_NOT_FOUND)
+	{
+		MemoryFree(pInformation, uInformationSize);
+		ZwClose(KeyHandle);
+		return FALSE;
+	}
+	if (pInformation->Type == REG_SZ &&
+		pInformation->DataLength == sizeof(ULONG))
+	{
+		RtlCopyMemory(pValue, pInformation->Data, pInformation->DataLength);
+	}
+	else
+	{
+		status = ZwSetValueKey(KeyHandle, &UnicodeValueName, 0, REG_SZ, (PVOID) DefaultValue, DefaultValueSize);
+		if (!NT_SUCCESS(status))
+		{
+			ZwClose(KeyHandle);
+			MemoryFree(pInformation, uInformationSize);
+			return FALSE;
+		}
+		RtlCopyMemory(pValue, DefaultValue, DefaultValueSize);
+		return TRUE;
+	}
+
+	ZwClose(KeyHandle);
+	MemoryFree(pInformation, uInformationSize);
+
+	return TRUE;
+}
 
 #define GET_VALUE(str, defaultValue) \
 do { \
@@ -69,6 +119,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 	NTSTATUS status;
 	ULONG value;
 	LInitializationParameters Parameters;
+	const WCHAR* DefaultFileName = L"C:\\KLog.txt";
 
 	Parameters.Status = FALSE;
 
@@ -81,7 +132,11 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 	if (!NT_SUCCESS(status))
 		return Parameters;
 
-	wcsncpy(FileName, L"C:\\KLog.txt", MAX_LOG_FILENAME_SIZE); // TODO:
+	if (!GetRegValueString(KeyHandle, L"Path", FileName, MAX_LOG_FILENAME_SIZE, DefaultFileName, (DWORD) wcslen(DefaultFileName)))
+	{
+		ZwClose(KeyHandle);
+		return Parameters;
+	}
 
 	GET_VALUE(L"LogLevel", LDBG);
 	Logger->Level = value;

@@ -59,7 +59,7 @@ EXPORT_FUNC LErrorCode LInit()
 #endif
 {
 	size_t ReservedBytes;
-	WCHAR FileName[MAX_LOG_FILENAME_SIZE];
+	WCHAR* FileName;
 	LInitializationParameters Parameters;
 	LErrorCode Code;
 	unsigned i;
@@ -89,10 +89,17 @@ EXPORT_FUNC LErrorCode LInit()
 		return LERROR_ANOTHER_THREAD_INITIALIZING;
 	}	
 
+	FileName = MemoryAlloc(MAX_LOG_FILENAME_SIZE, PagedPool);
+	if (!FileName)
+	{
+		MemoryFree(logger_try, sizeof(LoggerStruct));
+		return LERROR_MEMORY_ALLOC;
+	}
 	ReservedBytes = CalculateReservedBytes();
 	if (ReservedBytes == -1) {
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
+		MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 		return LERROR_INTERNAL;
 	}
 	InitSpinLock(&Logger->SpinLock);
@@ -104,6 +111,7 @@ EXPORT_FUNC LErrorCode LInit()
 	if (!Parameters.Status) {
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
+		MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 		return LERROR_REGISTRY;
 	}
 	pool = Parameters.NonPagedPool ? NonPagedPoolNx : PagedPool;
@@ -118,6 +126,7 @@ EXPORT_FUNC LErrorCode LInit()
 	if (!Logger->Identificators) {
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
+		MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 		return LERROR_MEMORY_ALLOC;
 	}
 	for (i = 0; i < Logger->IdentificatorsSize; i++)
@@ -129,6 +138,7 @@ EXPORT_FUNC LErrorCode LInit()
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
+		MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 		return LERROR_MEMORY_ALLOC;
 	}
 
@@ -139,6 +149,7 @@ EXPORT_FUNC LErrorCode LInit()
 		Logger = NULL;
 		RBDestroy(&(logger_try->RB));
 		MemoryFree(logger_try, sizeof(LoggerStruct));
+		MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 		return Code;
 	}
 
@@ -148,6 +159,7 @@ EXPORT_FUNC LErrorCode LInit()
 		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
 		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
 		Parameters.WaitAtPassive ? "YES" : "NO", Parameters.NonPagedPool ? "NonPaged" : "Paged");
+	MemoryFree(FileName, MAX_LOG_FILENAME_SIZE);
 
 	return LERROR_SUCCESS;
 }

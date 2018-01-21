@@ -119,7 +119,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 	NTSTATUS status;
 	ULONG value;
 	LInitializationParameters Parameters;
-	const WCHAR* DefaultFileName = L"C:\\KLog.txt";
+	const WCHAR* DefaultFileName = L"\\??\\C:\\KLog.txt";
 
 	Parameters.Status = FALSE;
 
@@ -132,7 +132,8 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 	if (!NT_SUCCESS(status))
 		return Parameters;
 
-	if (!GetRegValueString(KeyHandle, L"Path", FileName, MAX_LOG_FILENAME_SIZE, DefaultFileName, (DWORD) wcslen(DefaultFileName)))
+	if (!GetRegValueString(KeyHandle, L"LogPath", FileName, MAX_LOG_FILENAME_SIZE, DefaultFileName, 
+		(DWORD) wcslen(DefaultFileName) * sizeof (WCHAR)))
 	{
 		ZwClose(KeyHandle);
 		return Parameters;
@@ -184,7 +185,7 @@ VOID ThreadFunction(PVOID Param)
 			FALSE, (Logger->Timeout == 0xFFFFFFF) ? NULL : &Timeout, NULL);
 		if (!NT_SUCCESS(Status))
 		{
-			DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %d. Contunue", (int)Status);
+			DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %d. Contunue\n", (int)Status);
 			continue;
 		}
 
@@ -192,9 +193,9 @@ VOID ThreadFunction(PVOID Param)
 		{
 			Status2 = ZwWriteFile(Logger->File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
 			if (!NT_SUCCESS(Status2))
-				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d", (int)Status);
+				DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d\n", (int)Status);
 			if (Logger->OutputDbg)
-				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)size, ptr);
+				DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)size, ptr);
 			RBRelease(&Logger->RB, size);
 		}
 		if (Status == STATUS_WAIT_0 + 0) // DoneEvent
@@ -202,19 +203,17 @@ VOID ThreadFunction(PVOID Param)
 	}
 }
 
-static PVOID CreateEvent(PCWSTR Name)
+static PVOID CreateEvent()
 {
 	NTSTATUS Status;
 	HANDLE hEvent;
 	PVOID pEvent;
-	OBJECT_ATTRIBUTES oa;
-	UNICODE_STRING us;
 
-	RtlInitUnicodeString(&us, Name);
-	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
-	Status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, &oa, NotificationEvent, FALSE);
+	Status = ZwCreateEvent(&hEvent, EVENT_ALL_ACCESS, NULL, NotificationEvent, FALSE);
 	if (!NT_SUCCESS(Status))
+	{
 		return NULL;
+	}
 	Status = ObReferenceObjectByHandle(hEvent, EVENT_ALL_ACCESS, NULL, KernelMode, &pEvent, NULL);
 	if (!NT_SUCCESS(Status))
 	{
@@ -245,10 +244,10 @@ LErrorCode LInitializeObjects(WCHAR* FileName)
 	HANDLE Thread;
 	UNREFERENCED_PARAMETER(FileName);
 
-	Logger->DoneEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerDoneEvent");
+	Logger->DoneEvent = CreateEvent();
 	if (!Logger->DoneEvent)
 		return LERROR_CREATE_EVENT;
-	Logger->FlushEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerFlushEvent");
+	Logger->FlushEvent = CreateEvent();
 	if (!Logger->FlushEvent)
 	{
 		ObDereferenceObject(Logger->DoneEvent);
@@ -260,6 +259,7 @@ LErrorCode LInitializeObjects(WCHAR* FileName)
 		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SEQUENTIAL_ONLY, NULL, 0);
 	if (!NT_SUCCESS(Status))
 	{
+		DbgPrint("@@@@ %u %x", Status, Status);
 		ObDereferenceObject(Logger->DoneEvent);
 		ObDereferenceObject(Logger->FlushEvent);
 		return LERROR_OPEN_FILE;

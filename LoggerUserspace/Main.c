@@ -60,7 +60,7 @@ void RBHandleTest()  //debugged
 int main()
 {
 	
-	LErrorCode Code = LInit();
+	LErrorCode Code = LInit(NonPagedPoolNx);
 	if (Code != LERROR_SUCCESS)
 	{
 		printf("Failed to init log. Error %d\n", Code);

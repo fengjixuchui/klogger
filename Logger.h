@@ -55,7 +55,7 @@ typedef enum
 #ifdef _KERNEL_MODE
 EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath);
 #else
-EXPORT_FUNC LErrorCode LInit();
+EXPORT_FUNC LErrorCode LInit(POOL_TYPE pool);
 #endif
 EXPORT_FUNC void LDestroy();
 EXPORT_FUNC BOOL LIsInitialized();

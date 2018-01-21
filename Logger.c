@@ -120,7 +120,7 @@ EXPORT_FUNC LErrorCode LInit(POOL_TYPE pool)
 		Logger->Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger->Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger->RB, Size, 1, pool))
+	if (!RBInit(&Logger->RB, Size, ReservedBytes, 1, pool))
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		Logger = MM_BAD_POINTER;
@@ -252,7 +252,7 @@ static void LogFull()
 	if (Size > LOG_FULL_STRING_SIZE)
 		return; // log is full. just return
 
-	RBWrite(&Logger->RB, Str, Size);
+	RBWriteReserved(&Logger->RB, Str, Size);
 }
 
 static void GetLogLevelString(LogLevel Level, char* LevelString)
@@ -327,15 +327,17 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	size_t format_len = strlen(Format);
 	size_t str_len = strlen(Str);
 
-	size_t final_size = format_len + str_len + 2;
+	size_t final_size = format_len + str_len + 1;
 
 
 	
 	RBMSGHandle hndl = { 0 };
-	RBReceiveHandle(&Logger->RB, &hndl, final_size);
+	if (!RBReceiveHandle(&Logger->RB, &hndl, final_size)) {
+		LogFull();
+	}
 	Written = RBHandleWrite(&Logger->RB, &hndl, Format, format_len);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, str_len);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;

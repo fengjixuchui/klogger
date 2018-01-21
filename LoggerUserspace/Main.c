@@ -6,23 +6,33 @@
 #define TEST_STR "1234567890-"
 #define TEST_STR2 "0987654321"
 
+#define FULL "LOG IS FULL!"
+
 void RBTest()  //debugged
 {
 	RingBuffer RB;
-	RBInit(&RB, 67, 0, NonPagedPoolNx);
+	RBInit(&RB, 512, 128, 0, NonPagedPoolNx);
+	char* ptr;
+	size_t size;
 
 	for (;;)
 	{
-		assert(RBWrite(&RB, TEST_STR, sizeof(TEST_STR)));
+		if (!RBWrite(&RB, TEST_STR, sizeof(TEST_STR))) {
 
-		char* ptr;
-		size_t size;
+			RBWriteReserved(&RB, FULL, sizeof(FULL));
+			while (ptr = RBGetReadPTR(&RB, &size))
+			{
+				printf("Out (%d): %.*s\n", (int)size, (int)size, ptr);
+				RBRelease(&RB, size);
+			}
+		}
 
+		/*
 		while (ptr = RBGetReadPTR(&RB, &size))
 		{
 			printf("Out (%d): %.*s\n", (int)size, (int)size, ptr);
 			RBRelease(&RB, size);
-		}
+		}*/
 		system("pause");
 	}
 
@@ -32,7 +42,7 @@ void RBTest()  //debugged
 void RBHandleTest()  //debugged
 {
 	RingBuffer RB;
-	RBInit(&RB, 128, 1, NonPagedPoolNx);
+	RBInit(&RB, 128, 5, 1, NonPagedPoolNx);
 
 	for (;;)
 	{
@@ -60,7 +70,7 @@ void RBHandleTest()  //debugged
 
 int main()
 {
-	
+	/*
 	LErrorCode Code = LInit(NonPagedPoolNx);
 	if (Code != LERROR_SUCCESS)
 	{
@@ -86,8 +96,8 @@ int main()
 	
 
 	system("pause");
-
-	//RBTest();
+	*/
+	RBTest();
 	
 	//RBHandleTest();
 }

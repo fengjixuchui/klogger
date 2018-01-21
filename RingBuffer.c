@@ -3,15 +3,16 @@
 
 
 
-char* RBGetBuffer(RingBuffer* RB, size_t size);
+char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved);
 char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
 char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
+size_t RBWriteData(RingBuffer* RB, const char* str, size_t size, size_t reserved);
 
 #define READHDR(hdr, from) RBReadFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 #define WRITEHDR(hdr, from) RBWriteFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 
 
-BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool)
+BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved, char wait_at_passive, POOL_TYPE pool)
 {
 	if (!RB)
 		return FALSE;
@@ -24,6 +25,8 @@ BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool)
 	RB->wait_at_passive = wait_at_passive;
 	RB->carry_symbols = 0;
 	RB->pool = pool;
+	RB->reserved = reserved + sizeof(RBHeader);
+	RB->reserved_used = 0;
 
 	RB->Data = MemoryAlloc(Size, pool);
 	if (!RB->Data)
@@ -109,6 +112,9 @@ char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
 void RBRelease(RingBuffer* RB, size_t size) {
 	int add = (RB->carry_symbols) ? 0 : sizeof(RBHeader);
 	RB->tail = (RB->tail + size + add) % RB->Size;
+
+	if (RB->reserved != RB->reserved_used)
+		RB->reserved_used = (RB->reserved_used > size + sizeof(RBHeader)) ? RB->reserved_used - size - sizeof(RBHeader) : 0;
 }
 
 static char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start)
@@ -157,7 +163,7 @@ BOOL RBReceiveHandle(RingBuffer* RB, RBMSGHandle* handle, size_t size) {
 	if (size > RB->Size)
 		return FALSE;
 
-	char* hdr = RBGetBuffer(RB, size);
+	char* hdr = RBGetBuffer(RB, size, RB->reserved);
 	if (hdr == 0)
 		return FALSE;
 		
@@ -169,7 +175,7 @@ BOOL RBReceiveHandle(RingBuffer* RB, RBMSGHandle* handle, size_t size) {
 }
 
 
-char* RBGetBuffer(RingBuffer* RB, size_t size) {  
+char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {  
 	
 	KIRQL irql;
 
@@ -178,7 +184,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 		//Infinitely waiting for free space at passive level with flag (not sure if its wise)
 
 
-		size_t reqired_space = size + 2 * sizeof(RBHeader);  //2x header - HDR_MSG_NEXTHDR
+		size_t reqired_space = size + 2 * sizeof(RBHeader) + reserved;  //2x header - HDR_MSG_NEXTHDR
 		size_t free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
@@ -204,6 +210,11 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 				
 			return 0;
 		}
+
+		if (!reserved) {
+			size_t reserve_usage = (reqired_space + reserved > free_space) ? free_space - reqired_space : 0;
+			RB->reserved_used = reserve_usage;
+		}
 		
 		break;
 	}
@@ -227,7 +238,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 }
 
 
-size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
+size_t RBWriteData(RingBuffer* RB, const char* str, size_t size, size_t reserved) {
 
 	if (!RB || !str)
 		return 0;
@@ -236,7 +247,7 @@ size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
 	local_hdr.size = size + sizeof(RBHeader);
 	local_hdr.written = 1;
 
-	char* hdr = RBGetBuffer(RB, size);
+	char* hdr = RBGetBuffer(RB, size, reserved);
 	if (hdr == 0)
 		return 0;
 
@@ -245,6 +256,14 @@ size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
 	WRITEHDR(&local_hdr, hdr);
 
 	return size;
+}
+
+size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
+	RBWriteData(RB, str, size, RB->reserved);
+}
+
+size_t RBWriteReserved(RingBuffer* RB, const char* str, size_t size) {
+	RBWriteData(RB, str, size, 0);
 }
 
 

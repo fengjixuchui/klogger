@@ -256,8 +256,8 @@ LErrorCode LInitializeObjects(WCHAR* FileName)
 	}
 	RtlInitUnicodeString(&us, FileName);
 	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
-	Status = ZwCreateFile(&Logger->File, GENERIC_WRITE, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
-		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
+	Status = ZwCreateFile(&Logger->File, FILE_APPEND_DATA, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
+		FILE_SHARE_READ, FILE_OPEN_IF, FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
 	if (!NT_SUCCESS(Status))
 	{
 		ObDereferenceObject(Logger->DoneEvent);

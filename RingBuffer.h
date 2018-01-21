@@ -13,23 +13,64 @@ typedef int BOOL;
 
 #include "Main.h"
 
-typedef struct
+
+
+#ifdef _KERNEL_MODE
+#define SpinLockObject KSPIN_LOCK
+
+#else
+
+#include "windows.h"
+
+#define SpinLockObject CRITICAL_SECTION
+#define KIRQL char
+
+#endif	
+
+
+struct RingBuffer_
 {
 	size_t Size;
+	size_t head;
+	size_t tail;
 	char* Data;
-	size_t Begin;
-	size_t End;
-	size_t ReservedBytes;
 
-} RingBuffer;
+	SpinLockObject spinlock;
 
-BOOL RBInit(RingBuffer* RB, size_t Size, size_t ReservedBytes);
+	size_t carry_symbols;
+	char wait_at_passive;
+
+};
+
+typedef struct {
+	size_t size;
+	int written;
+} RBHeader;
+
+struct RBMSGHandle_ {
+	char* current_ptr;
+	char* msg_header;
+	size_t symb_left;
+};
+
+
+typedef struct RingBuffer_ RingBuffer;
+typedef struct RBMSGHandle_ RBMSGHandle;
+
+
+#define MAXTRYLIMITLESS -1
+
+BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive);  //must be in non-paged
 void RBDestroy(RingBuffer* RB);
-BOOL RBEmpty(const RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
 size_t RBFreeSize(const RingBuffer* RB);
-const char* RBRead(RingBuffer* RB, size_t* Size);
-size_t RBWrite(RingBuffer* RB, const char* Str, size_t Size);
-size_t RBWriteReserved(RingBuffer* RB, const char* Str, size_t Size);
+RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size);
+size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size);
+void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle);
+size_t RBWrite(RingBuffer* RB, const char* str, size_t size);
+
+char* RBGetReadPTR(RingBuffer* RB, size_t* Size);
+void RBRelease(RingBuffer* RB, size_t size);
+
 
 #endif // __RINGBUFFER__

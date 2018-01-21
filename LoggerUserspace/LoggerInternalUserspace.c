@@ -10,7 +10,7 @@ size_t LInitializeParameters(char* FileName)
 	Logger.OutputDbg = TRUE;
 	Logger.IdentificatorsSize = 10;
 	Logger.Timeout = 10 * 1000;
-	Logger.FlushPercent = 90;
+	Logger.FlushPercent = 50;
 
 	return Size;
 }
@@ -18,8 +18,6 @@ size_t LInitializeParameters(char* FileName)
 DWORD WINAPI ThreadFunction(LPVOID Param)
 {
 	DWORD Result;
-	size_t Size;
-	const char* Buffer;
 	HANDLE Objects[2] = { Logger.DoneEvent, Logger.FlushEvent };
 	for (;;)
 	{
@@ -30,19 +28,14 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 			continue;
 		}
 
-		while (!RBEmpty(&Logger.RB))
+		char* ptr;
+		size_t size;
+		while (ptr = RBGetReadPTR(&Logger.RB, &size))
 		{
-			Buffer = RBRead(&Logger.RB, &Size);
-			if (!Buffer)
-				break;
-
-			if (!WriteFile(Logger.File, Buffer, (DWORD)Size, NULL, NULL))
-			{
-				printf("WriteFile failed\n");
-			}
-			if (Logger.OutputDbg)
-				printf("%.*s", (int) Size, Buffer);
+			printf("%.*s", (int)size, ptr);
+			RBRelease(&Logger.RB, size);
 		}
+
 		if (Result == WAIT_OBJECT_0 + 0) // DoneEvent
 			break;
 	}

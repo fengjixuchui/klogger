@@ -43,6 +43,8 @@ typedef enum
 	LERROR_CREATE_THREAD
 } LErrorCode;
 
+
+
 #ifdef __EXPORT_DRIVER
 	#define EXPORT_FUNC __declspec (dllexport)
 #else
@@ -59,6 +61,7 @@ EXPORT_FUNC BOOL LIsInitialized();
 EXPORT_FUNC LHANDLE LOpen(const char* Name);
 EXPORT_FUNC void LClose(LHANDLE Handle);
 EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
+EXPORT_FUNC void LFlush();
 
 #define MAX_LOG_SIZE 8192
 #define LOG(Handle,Level,Format,...) \

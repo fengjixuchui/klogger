@@ -13,6 +13,7 @@
 
 #define MAX_LOG_FILENAME_SIZE 1024
 
+
 typedef struct
 {
 	BOOL Initialized;

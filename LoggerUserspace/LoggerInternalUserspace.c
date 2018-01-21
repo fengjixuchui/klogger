@@ -25,7 +25,7 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 	HANDLE Objects[2] = { Logger->DoneEvent, Logger->FlushEvent };
 	for (;;)
 	{
-		Result = WaitForMultipleObjects(2, Objects, FALSE, Logger->Timeout);
+		Result = WaitForMultipleObjects(2, Objects, FALSE, (Logger->Timeout == 0xFFFFFFF) ? INFINITE : Logger->Timeout);
 		if (Result == WAIT_FAILED)
 		{
 			printf("WaitForMultipleObjects failed. Continue\n");
@@ -89,7 +89,6 @@ void LDestroyObjects()
 	CloseHandle(Logger->FlushEvent);
 	CloseHandle(Logger->Thread);
 	CloseHandle(Logger->File);
-	DestroySpinLock(&Logger->spinlock);
 }
 
 void LSetFlushEvent()

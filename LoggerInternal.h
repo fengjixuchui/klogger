@@ -65,7 +65,7 @@ typedef struct
 } LInitializationParameters;
 
 #ifdef _KERNEL_MODE
-LInitializationParameters LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath);
+LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING RegPath);
 #else
 LInitializationParameters LInitializeParameters(char* FileName);
 #endif

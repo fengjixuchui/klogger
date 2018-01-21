@@ -2,26 +2,111 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-LInitializationParameters LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
+static BOOL GetRegValueDword(HANDLE KeyHandle, PCWSTR ValueName, PULONG pValue, ULONG DefaultValue)
 {
+	NTSTATUS                       status;
+	KEY_VALUE_PARTIAL_INFORMATION  *pInformation;
+	ULONG                          uInformationSize;
+	UNICODE_STRING	               UnicodeValueName;
+
+	RtlInitUnicodeString(&UnicodeValueName, ValueName);
+
+	uInformationSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + sizeof(ULONG);
+
+	pInformation = MemoryAlloc(uInformationSize, PagedPool);
+	if (pInformation == NULL)
+	{
+		ZwClose(KeyHandle);
+		return FALSE;
+	}
+	status = ZwQueryValueKey(KeyHandle, &UnicodeValueName, KeyValuePartialInformation,
+		pInformation, uInformationSize, &uInformationSize);
+
+	if (!NT_SUCCESS(status) && status != STATUS_OBJECT_NAME_NOT_FOUND)
+	{
+		MemoryFree(pInformation, uInformationSize);
+		ZwClose(KeyHandle);
+		return FALSE;
+	}
+	if (pInformation->Type == REG_DWORD &&
+		pInformation->DataLength == sizeof(ULONG))
+	{
+		RtlCopyMemory(pValue, pInformation->Data, sizeof(ULONG));
+	}
+	else
+	{
+		status = ZwSetValueKey(KeyHandle, &UnicodeValueName, 0, REG_DWORD, &DefaultValue, sizeof(ULONG));
+		if (!NT_SUCCESS(status))
+		{
+			ZwClose(KeyHandle);
+			MemoryFree(pInformation, uInformationSize);
+			return FALSE;
+		}
+		*pValue = DefaultValue;
+		return TRUE;
+	}
+
+	ZwClose(KeyHandle);
+	MemoryFree(pInformation, uInformationSize);
+
+	return TRUE;
+}
+
+
+#define GET_VALUE(str, defaultValue) \
+do { \
+	if (!GetRegValueDword(KeyHandle, str, &value, defaultValue)) \
+	{\
+		ZwClose(KeyHandle); \
+		return Parameters; \
+	} \
+} while (0)
+
+LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING RegPath)
+{
+	HANDLE KeyHandle;
+	OBJECT_ATTRIBUTES ObjectAttributes;
+	NTSTATUS status;
+	ULONG value;
 	LInitializationParameters Parameters;
+
+	Parameters.Status = FALSE;
+
+	InitializeObjectAttributes(&ObjectAttributes, RegPath, 0, NULL, NULL);
+
+	status = ZwOpenKey(&KeyHandle,
+		KEY_QUERY_VALUE,
+		&ObjectAttributes);
+
+	if (!NT_SUCCESS(status))
+		return Parameters;
+
 	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
 
-	Logger->Level = LDBG;
-	Logger->OutputDbg = TRUE;
-	Logger->IdentificatorsSize = 10;
-	Logger->Timeout = 10 * 1000;
-	Logger->FlushPercent = 90;
+	GET_VALUE(L"LogLevel", LDBG);
+	Logger->Level = value;
+	GET_VALUE(L"OutputDbg", FALSE);
+	Logger->OutputDbg = (value != 0);
+	GET_VALUE(L"NumIdentificators", 10);
+	Logger->IdentificatorsSize = value;
+	GET_VALUE(L"Timeout", 10 * 1000);
+	Logger->Timeout = value;
+	GET_VALUE(L"FlushPercent", 90);
+	Logger->FlushPercent = value;
 
-	UNREFERENCED_PARAMETER(DriverObject);
-	UNREFERENCED_PARAMETER(RegPath); // TODO: use RegPath
+	GET_VALUE(L"BufferSize", 1024 * 1024);
+	Parameters.RingBufferSize = value;
+	GET_VALUE(L"NonPagedPool", TRUE);
+	Parameters.NonPagedPool = (value != 0);
+	GET_VALUE(L"WaitAtPassive", FALSE);
+	Parameters.WaitAtPassive = (value != 0);
 
 	Parameters.Status = TRUE;
-	Parameters.RingBufferSize = 4096;
-	Parameters.NonPagedPool = TRUE;
-	Parameters.WaitAtPassive = FALSE;
+	ZwClose(KeyHandle);
 	return Parameters;
 }
+
+#undef GET_VALUE
 
 KSTART_ROUTINE ThreadFunction;
 VOID ThreadFunction(PVOID Param)
@@ -40,7 +125,8 @@ VOID ThreadFunction(PVOID Param)
 
 	for (;;)
 	{
-		Status = KeWaitForMultipleObjects(2, Objects, WaitAny, Executive, KernelMode, FALSE, &Timeout, NULL);
+		Status = KeWaitForMultipleObjects(2, Objects, WaitAny, Executive, KernelMode, 
+			FALSE, (Logger->Timeout == 0xFFFFFFF) ? NULL : &Timeout, NULL);
 		if (!NT_SUCCESS(Status))
 		{
 			DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %d. Contunue", (int)Status);
@@ -102,7 +188,7 @@ LErrorCode LInitializeObjects(char* FileName)
 	}
 	RtlInitUnicodeString(&us, L"C:\\Users\\jeka\\Desktop\\Log.txt");
 	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
-	Status = ZwCreateFile(&Logger->File, GENERIC_READ, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
+	Status = ZwCreateFile(&Logger->File, GENERIC_WRITE, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
 		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SEQUENTIAL_ONLY, NULL, 0);
 	if (!NT_SUCCESS(Status))
 	{
@@ -118,7 +204,6 @@ LErrorCode LInitializeObjects(char* FileName)
 		ZwClose(Logger->File);
 		return LERROR_CREATE_THREAD;
 	}
-	KeInitializeSpinLock(&Logger->SpinLock);
 	return LERROR_SUCCESS;
 }
 

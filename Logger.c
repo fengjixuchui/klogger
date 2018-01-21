@@ -53,7 +53,7 @@ static size_t CalculateReservedBytes()
 }
 
 #ifdef _KERNEL_MODE
-EXPORT_FUNC LErrorCode LInit(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
+EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath)
 #else
 EXPORT_FUNC LErrorCode LInit()
 #endif
@@ -94,7 +94,7 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 	InitSpinLock(&Logger->spinlock);
 #ifdef _KERNEL_MODE
-	Parameters = LInitializeParameters(FileName, DriverObject, RegPath);
+	Parameters = LInitializeParameters(FileName, RegPath);
 #else
 	Parameters = LInitializeParameters(FileName);
 #endif
@@ -159,9 +159,10 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 
 	if (Logger->NumIdentificators != 1 /* logger identificator */)
 		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators - 1);
-	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
+	LOG(LHANDLE_LOGGER, LINF, "Log destroyed\n");
 
 	LDestroyObjects();
+	DestroySpinLock(&Logger->SpinLock);
 	MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 	RBDestroy(&(Logger->RB));
 

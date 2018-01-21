@@ -9,7 +9,7 @@
 void RBTest()  //debugged
 {
 	RingBuffer RB;
-	RBInit(&RB, 67, 0);
+	RBInit(&RB, 67, 0, NonPagedPoolNx);
 
 	for (;;)
 	{
@@ -32,7 +32,7 @@ void RBTest()  //debugged
 void RBHandleTest()  //debugged
 {
 	RingBuffer RB;
-	RBInit(&RB, 128, 1);
+	RBInit(&RB, 128, 1, NonPagedPoolNx);
 
 	for (;;)
 	{
@@ -70,7 +70,7 @@ int main()
 	LHANDLE handle1 = LOpen("HANDLE1");
 	LHANDLE handle2 = LOpen("HANDLE2");
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 100; i++) {
 		LOG(handle1, LDBG, "Debug message %d", i*2);
 		LOG(handle2, LDBG, "Debug message %d", i*2+1);
 	}
@@ -85,6 +85,8 @@ int main()
 	
 
 	system("pause");
+
+	//RBTest();
 	
 	//RBHandleTest();
 }

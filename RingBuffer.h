@@ -15,19 +15,6 @@ typedef int BOOL;
 
 
 
-#ifdef _KERNEL_MODE
-#define SpinLockObject KSPIN_LOCK
-
-#else
-
-#include "windows.h"
-
-#define SpinLockObject CRITICAL_SECTION
-#define KIRQL char
-
-#endif	
-
-
 struct RingBuffer_
 {
 	size_t Size;
@@ -35,9 +22,10 @@ struct RingBuffer_
 	size_t tail;
 	char* Data;
 
-	SpinLockObject spinlock;
+	SpinLockObject* spinlock;
 
 	size_t carry_symbols;
+	POOL_TYPE pool;
 	char wait_at_passive;
 
 };
@@ -60,7 +48,7 @@ typedef struct RBMSGHandle_ RBMSGHandle;
 
 #define MAXTRYLIMITLESS -1
 
-BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive);  //must be in non-paged
+BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
 void RBDestroy(RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
 size_t RBFreeSize(const RingBuffer* RB);

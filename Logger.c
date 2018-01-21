@@ -107,7 +107,7 @@ EXPORT_FUNC LErrorCode LInit()
 	Logger->IdentificatorsSize = MAX(Logger->IdentificatorsSize, 1);
 	Logger->Level = MIN(Logger->Level, LOG_LEVEL_NONE);
 	Logger->FlushPercent = MAX(MIN(Logger->FlushPercent, 100), 1);
-	Parameters.RingBufferSize = MIN(Parameters.RingBufferSize, MIN_RING_BUFFER_SIZE);
+	Parameters.RingBufferSize = MAX(Parameters.RingBufferSize, MIN_RING_BUFFER_SIZE);
 	
 	Logger->IdentificatorsSize++; // one identificator for logger
 	Logger->NumIdentificators = 1;
@@ -139,11 +139,12 @@ EXPORT_FUNC LErrorCode LInit()
 		return Code;
 	}
 
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms", 
-		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
-		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout);
-
 	Logger->Initialized = TRUE;
+	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
+		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
+		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
+		Parameters.WaitAtPassive ? "YES" : "NO", Parameters.NonPagedPool ? "NonPaged" : "Paged");
 
 	return LERROR_SUCCESS;
 }

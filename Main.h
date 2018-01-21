@@ -25,12 +25,10 @@ inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
 		KeReleaseSpinLock(Kspinlock, irql);
 }
 
-
 #define InitSpinLock(spinlock)				KeInitializeSpinLock(spinlock)
 #define AcquireSpinLock(spinlock, irql)		KernelSpinLockAcquire(spinlock, irql)
 #define ReleaseSpinLock(spinlock, irql)		KernelSpinLockRelease(spinlock, irql)
 #define DestroySpinLock(spinlock)			1
-//I guess there is no Destroy func on kernel spinlocks
 
 #else
 

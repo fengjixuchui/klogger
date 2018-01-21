@@ -2,13 +2,13 @@
 #define __LOGGER__
 
 #ifndef BOOL
-typedef int BOOL;
+	typedef int BOOL;
 #endif
 #ifndef TRUE
-#define TRUE 1
+	#define TRUE 1
 #endif
 #ifndef FALSE
-#define FALSE 0
+	#define FALSE 0
 #endif
 
 #ifdef _KERNEL_MODE
@@ -16,6 +16,12 @@ typedef int BOOL;
 	#define snprintf RtlStringCchPrintfA
 #else
 	#include <stdio.h>
+#endif
+
+#ifdef __EXPORT_DRIVER
+	#define EXPORT_FUNC __declspec (dllexport)
+#else
+	#define EXPORT_FUNC __declspec (dllimport)
 #endif
 
 typedef unsigned LHANDLE;
@@ -43,14 +49,6 @@ typedef enum
 	LERROR_OPEN_FILE,
 	LERROR_CREATE_THREAD
 } LErrorCode;
-
-
-
-#ifdef __EXPORT_DRIVER
-	#define EXPORT_FUNC __declspec (dllexport)
-#else
-	#define EXPORT_FUNC __declspec (dllimport)
-#endif
 
 #ifdef _KERNEL_MODE
 EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath);

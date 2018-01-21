@@ -13,7 +13,7 @@ typedef int BOOL;
 
 #include "Main.h"
 
-struct RingBuffer_
+typedef struct
 {
 	size_t Size;
 	size_t head;
@@ -25,26 +25,18 @@ struct RingBuffer_
 	size_t carry_symbols;
 	POOL_TYPE pool;
 	char wait_at_passive;
-
-};
+} RingBuffer;
 
 typedef struct {
 	size_t size;
 	int written;
 } RBHeader;
 
-struct RBMSGHandle_ {
+typedef struct {
 	char* current_ptr;
 	char* msg_header;
 	size_t symb_left;
-};
-
-
-typedef struct RingBuffer_ RingBuffer;
-typedef struct RBMSGHandle_ RBMSGHandle;
-
-
-#define MAXTRYLIMITLESS -1
+} RBMSGHandle;
 
 BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
 void RBDestroy(RingBuffer* RB);

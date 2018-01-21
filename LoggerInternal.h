@@ -11,8 +11,7 @@
 #include "RingBuffer.h"
 #include "Logger.h"
 
-#define MAX_LOG_FILENAME_SIZE 1024
-
+#define MAX_LOG_FILENAME_SIZE 4096
 
 typedef struct
 {

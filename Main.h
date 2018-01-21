@@ -56,8 +56,6 @@ inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
 #define ReleaseSpinLock(spinlock, irql)		LeaveCriticalSection(spinlock)
 #define DestroySpinLock(spinlock)			DeleteCriticalSection(spinlock)
 
-#define MM_BAD_POINTER ((void*)0)
-
 #endif
 
 #endif __MAIN__

@@ -30,6 +30,7 @@ typedef struct
 
 	HANDLE File;
 	HANDLE Thread;
+	SpinLockObject spinlock;
 
 #ifdef _KERNEL_MODE
 	PVOID DoneEvent;
@@ -41,7 +42,7 @@ typedef struct
 	SpinLockObject SpinLock;
 } LoggerStruct;
 
-extern LoggerStruct Logger;
+extern LoggerStruct* Logger;
 
 enum TimeParameters
 {
@@ -62,8 +63,6 @@ size_t LInitializeParameters(char* FileName);
 #endif
 LErrorCode LInitializeObjects(char* FileName);
 void LDestroyObjects();
-void LSpinlockAcquire();
-void LSpinlockRelease();
 void LSetFlushEvent();
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS]);
 

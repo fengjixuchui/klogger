@@ -7,11 +7,11 @@ size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath)
 	size_t Size = 4096;
 	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
 
-	Logger.Level = LDBG;
-	Logger.OutputDbg = TRUE;
-	Logger.IdentificatorsSize = 10;
-	Logger.Timeout = 10 * 1000;
-	Logger.FlushPercent = 90;
+	Logger->Level = LDBG;
+	Logger->OutputDbg = TRUE;
+	Logger->IdentificatorsSize = 10;
+	Logger->Timeout = 10 * 1000;
+	Logger->FlushPercent = 90;
 
 	UNREFERENCED_PARAMETER(RegPath); // TODO: use RegPath
 
@@ -28,10 +28,10 @@ VOID ThreadFunction(PVOID Param)
 	LARGE_INTEGER Timeout;
 	PVOID Objects[2];
 	UNREFERENCED_PARAMETER(Param);
-	Objects[0] = Logger.DoneEvent;
-	Objects[1] = Logger.FlushEvent;
+	Objects[0] = Logger->DoneEvent;
+	Objects[1] = Logger->FlushEvent;
 
-	Timeout.QuadPart = -10 * 1000 * Logger.Timeout;
+	Timeout.QuadPart = -10 * 1000 * Logger->Timeout;
 
 	for (;;)
 	{
@@ -42,14 +42,14 @@ VOID ThreadFunction(PVOID Param)
 			continue;
 		}
 
-		while ((ptr = RBGetReadPTR(&Logger.RB, &size)) != NULL)
+		while ((ptr = RBGetReadPTR(&Logger->RB, &size)) != NULL)
 		{
-			Status2 = ZwWriteFile(Logger.File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
+			Status2 = ZwWriteFile(Logger->File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
 			if (!NT_SUCCESS(Status2))
 				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d", (int)Status);
-			if (Logger.OutputDbg)
+			if (Logger->OutputDbg)
 				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)size, ptr);
-			RBRelease(&Logger.RB, size);
+			RBRelease(&Logger->RB, size);
 		}
 		if (Status == STATUS_WAIT_0 + 0) // DoneEvent
 			break;
@@ -86,34 +86,34 @@ LErrorCode LInitializeObjects(char* FileName)
 	IO_STATUS_BLOCK sb;
 	UNREFERENCED_PARAMETER(FileName);
 
-	Logger.DoneEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerDoneEvent");
-	if (!Logger.DoneEvent)
+	Logger->DoneEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerDoneEvent");
+	if (!Logger->DoneEvent)
 		return LERROR_CREATE_EVENT;
-	Logger.FlushEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerFlushEvent");
-	if (!Logger.FlushEvent)
+	Logger->FlushEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerFlushEvent");
+	if (!Logger->FlushEvent)
 	{
-		ObDereferenceObject(Logger.DoneEvent);
+		ObDereferenceObject(Logger->DoneEvent);
 		return LERROR_CREATE_EVENT;
 	}
 	RtlInitUnicodeString(&us, L"C:\\Users\\jeka\\Desktop\\Log.txt");
 	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
-	Status = ZwCreateFile(&Logger.File, GENERIC_READ, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL, 
+	Status = ZwCreateFile(&Logger->File, GENERIC_READ, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
 		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SEQUENTIAL_ONLY, NULL, 0);
 	if (!NT_SUCCESS(Status))
 	{
-		ObDereferenceObject(Logger.DoneEvent);
-		ObDereferenceObject(Logger.FlushEvent);
+		ObDereferenceObject(Logger->DoneEvent);
+		ObDereferenceObject(Logger->FlushEvent);
 		return LERROR_OPEN_FILE;
 	}
-	Status = PsCreateSystemThread(&Logger.Thread, 0, NULL, NULL, NULL, ThreadFunction, NULL);
+	Status = PsCreateSystemThread(&Logger->Thread, 0, NULL, NULL, NULL, ThreadFunction, NULL);
 	if (!NT_SUCCESS(Status))
 	{
-		ObDereferenceObject(Logger.DoneEvent);
-		ObDereferenceObject(Logger.FlushEvent);
-		ZwClose(Logger.File);
+		ObDereferenceObject(Logger->DoneEvent);
+		ObDereferenceObject(Logger->FlushEvent);
+		ZwClose(Logger->File);
 		return LERROR_CREATE_THREAD;
 	}
-	KeInitializeSpinLock(&Logger.SpinLock);
+	KeInitializeSpinLock(&Logger->SpinLock);
 	return LERROR_SUCCESS;
 }
 
@@ -122,20 +122,10 @@ void LDestroyObjects()
 	// TODO:
 }
 
-void LSpinlockAcquire()
-{
-	// TODO:
-}
-
-void LSpinlockRelease()
-{
-	// TODO:
-}
-
 void LSetFlushEvent()
 {
 	// TODO: KeInsertQueueDpc
-	KeSetEvent(Logger.FlushEvent, 0, FALSE);
+	KeSetEvent(Logger->FlushEvent, 0, FALSE);
 }
 
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS])

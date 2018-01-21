@@ -9,7 +9,7 @@ static char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
 #define WRITEHDR(hdr, from) RBWriteFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 
 
-BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive)
+BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool)
 {
 	if (!RB)
 		return FALSE;
@@ -21,13 +21,20 @@ BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive)
 	RB->tail = 0;
 	RB->wait_at_passive = wait_at_passive;
 	RB->carry_symbols = 0;
+	RB->pool = pool;
 
-	RB->Data = MemoryAlloc(Size, NonPagedPoolNx);
+	RB->Data = MemoryAlloc(Size, pool);
 	if (!RB->Data)
 		return FALSE;
+	RB->spinlock = MemoryAlloc(sizeof(SpinLockObject), pool);
+	if (!RB->spinlock) {
+		MemoryFree(RB->Data, Size);
+		return FALSE;
+	}
+
 
 	memset(RB->Data, 0, sizeof(RBHeader)); //writing first zero header
-	InitSpinLock(&RB->spinlock);
+	InitSpinLock(RB->spinlock);
 
 	return TRUE;
 }
@@ -39,7 +46,9 @@ void RBDestroy(RingBuffer* RB)
 
 	MemoryFree(RB->Data, RB->Size);
 	RB->Data = NULL;
-	DestroySpinLock(&RB->spinlock);
+	DestroySpinLock(RB->spinlock);
+	MemoryFree(RB->spinlock, sizeof(SpinLockObject));
+	RB->spinlock = NULL;
 }
 
 
@@ -138,7 +147,7 @@ char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start) {
 }
 
 
-RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) { //not debugged
+RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
 	
 	if (!RB || !size)
 		return 0;
@@ -146,11 +155,17 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) { //not debugged
 	if (size > RB->Size)
 		return 0;
 
+	if (GetIRQL() > DISPATCH_LEVEL)
+		return 0; //cannot use ExAllocatePoolWithTag at irql>=DPC
+
+	if ((GetIRQL() == DISPATCH_LEVEL) && (RB->pool == PagedPool)) //cannot allocate PagedPool at irql==DPC
+		return 0;
+
 	char* hdr = RBGetBuffer(RB, size);
 	if (hdr == 0)
 		return 0;
 
-	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), NonPagedPoolNx);
+	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), RB->pool);
 	memset(handle, 0, sizeof(RBMSGHandle));
 		
 	handle->current_ptr = RB->Data + ((size_t)(hdr + sizeof(RBHeader) - (size_t)RB->Data) % RB->Size);
@@ -167,7 +182,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 
 	while (TRUE) {  
 		
-		//Infinitely waiting for free space (not sure if its wise)
+		//Infinitely waiting for free space at passive level with flag (not sure if its wise)
 
 
 		size_t reqired_space = size + 2 * sizeof(RBHeader);  //2x header - HDR_MSG_NEXTHDR
@@ -181,14 +196,14 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 			return 0;
 		}
 			
-		//spinlock asquire
-		AcquireSpinLock(&RB->spinlock, &irql);
+		//spinlock Acquire
+		AcquireSpinLock(RB->spinlock, &irql);
 
 		free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
 		if (reqired_space > free_space) {
-			ReleaseSpinLock(&RB->spinlock, irql);
+			ReleaseSpinLock(RB->spinlock, irql);
 			//release spinlock
 
 			if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
@@ -213,7 +228,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 	local_hdr.size = 0;
 	WRITEHDR(&local_hdr, RB->Data + RB->head);
 
-	ReleaseSpinLock(&RB->spinlock, irql);
+	ReleaseSpinLock(RB->spinlock, irql);
 
 	return old_head;
 }

@@ -55,10 +55,18 @@ enum TimeParameters
 	NUM_TIME_PARAMETERS
 };
 
+typedef struct
+{
+	BOOL Status;
+
+	size_t RingBufferSize;
+	BOOL NonPagedPool;
+} LInitializationParameters;
+
 #ifdef _KERNEL_MODE
-size_t LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath);
+LInitializationParameters LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath);
 #else
-size_t LInitializeParameters(char* FileName);
+LInitializationParameters LInitializeParameters(char* FileName);
 #endif
 LErrorCode LInitializeObjects(char* FileName);
 void LDestroyObjects();

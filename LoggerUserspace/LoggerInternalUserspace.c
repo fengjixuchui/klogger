@@ -1,9 +1,9 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-size_t LInitializeParameters(char* FileName)
+LInitializationParameters LInitializeParameters(char* FileName)
 {
-	size_t Size = 4096;
+	LInitializationParameters Parameters;
 	strncpy(FileName, "log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger->Level = LDBG;
@@ -12,7 +12,10 @@ size_t LInitializeParameters(char* FileName)
 	Logger->Timeout = 10 * 1000;
 	Logger->FlushPercent = 50;
 
-	return Size;
+	Parameters.Status = TRUE;
+	Parameters.RingBufferSize = 4096;
+	Parameters.NonPagedPool = TRUE;
+	return Parameters;
 }
 
 DWORD WINAPI ThreadFunction(LPVOID Param)

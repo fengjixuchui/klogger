@@ -2,9 +2,9 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-size_t LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
+LInitializationParameters LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
-	size_t Size = 4096;
+	LInitializationParameters Parameters;
 	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger->Level = LDBG;
@@ -16,7 +16,10 @@ size_t LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICO
 	UNREFERENCED_PARAMETER(DriverObject);
 	UNREFERENCED_PARAMETER(RegPath); // TODO: use RegPath
 
-	return Size;
+	Parameters.Status = TRUE;
+	Parameters.RingBufferSize = 4096;
+	Parameters.NonPagedPool = TRUE;
+	return Parameters;
 }
 
 KSTART_ROUTINE ThreadFunction;

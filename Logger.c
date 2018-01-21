@@ -60,7 +60,7 @@ EXPORT_FUNC LErrorCode LInit()
 {
 	size_t ReservedBytes;
 	char FileName[MAX_LOG_FILENAME_SIZE];
-	size_t Size;
+	LInitializationParameters Parameters;
 	LErrorCode Code;
 	unsigned i;
 	POOL_TYPE pool = NonPagedPoolNx;
@@ -94,19 +94,20 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 	InitSpinLock(&Logger->spinlock);
 #ifdef _KERNEL_MODE
-	Size = LInitializeParameters(FileName, DriverObject, RegPath);
+	Parameters = LInitializeParameters(FileName, DriverObject, RegPath);
 #else
-	Size = LInitializeParameters(FileName);
+	Parameters = LInitializeParameters(FileName);
 #endif
-	if (Size == -1) {
+	if (!Parameters.Status) {
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_REGISTRY;
 	}
+	pool = Parameters.NonPagedPool ? NonPagedPoolNx : PagedPool;
 	Logger->IdentificatorsSize = MAX(Logger->IdentificatorsSize, 1);
 	Logger->Level = MIN(Logger->Level, LOG_LEVEL_NONE);
 	Logger->FlushPercent = MAX(MIN(Logger->FlushPercent, 100), 1);
-	Size = MIN(Size, MIN_RING_BUFFER_SIZE);
+	Parameters.RingBufferSize = MIN(Parameters.RingBufferSize, MIN_RING_BUFFER_SIZE);
 	
 	Logger->IdentificatorsSize++; // one identificator for logger
 	Logger->NumIdentificators = 1;
@@ -120,7 +121,7 @@ EXPORT_FUNC LErrorCode LInit()
 		Logger->Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger->Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger->RB, Size, 1, pool))
+	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, 1, pool))
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		Logger = NULL;
@@ -160,14 +161,8 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
 
 	LDestroyObjects();
-/*	LSpinlockAcquire();
-	if (!Logger.Initialized)
-		return;
-	LSpinlockRelease();
-*/
 	MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 	RBDestroy(&(Logger->RB));
-
 
 	MemoryFree(Logger, sizeof(LoggerStruct));
 

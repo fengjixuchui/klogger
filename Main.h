@@ -11,18 +11,18 @@
 
 #define SpinLockObject KSPIN_LOCK
 
-void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
+inline void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
 	if (GetIRQL() >= DISPATCH_LEVEL)
-		KeAcquireSpinLockAtDpcLevel(Kspinlock, irql);
+		KeAcquireSpinLockAtDpcLevel(Kspinlock);
 	else
-		KeAcquireSpinLock(kspinlock, irql);
+		KeAcquireSpinLock(Kspinlock, irql);
 }
 
-void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
-	if (*irql >= DISPATCH_LEVEL)
-		KeReleaseSpinLockAtDpcLevel(Kspinlock, irql);
+inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
+	if (irql >= DISPATCH_LEVEL)
+		KeReleaseSpinLockFromDpcLevel(Kspinlock);
 	else
-		KeReleaseSpinLock(kspinlock, irql);
+		KeReleaseSpinLock(Kspinlock, irql);
 }
 
 

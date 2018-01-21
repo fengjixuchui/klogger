@@ -1,39 +1,9 @@
 #include <string.h>
 #include "RingBuffer.h"
 
-#ifdef _KERNEL_MODE
-#define GetIRQL() KeGetCurrentIrql()
-
-
-//Completely not done
-
-#define InitSpinLock(spinlock)				KeInitializeSpinLock(spinlock)
-#define AcquireSpinLock(spinlock, irql)		EnterCriticalSection(spinlock)
-#define ReleaseSpinLock(spinlock, irql)		LeaveCriticalSection(spinlock)
-#define DestroySpinLock(spinlock)			DeleteCriticalSection(spinlock)
-
-
-#else
-
-#include "windows.h"
-
-
-#define InitSpinLock(spinlock)				InitializeCriticalSection(spinlock)
-#define AcquireSpinLock(spinlock, irql)		EnterCriticalSection(spinlock)
-#define ReleaseSpinLock(spinlock, irql)		LeaveCriticalSection(spinlock)
-#define DestroySpinLock(spinlock)			DeleteCriticalSection(spinlock)
-
-#define PASSIVE_LEVEL 0
-#define GetIRQL() 0
-
-
-#endif	
-
-
-
-char* RBGetBuffer(RingBuffer* RB, size_t size);
-char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
-char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
+static char* RBGetBuffer(RingBuffer* RB, size_t size);
+static char* RBWriteFrom(RingBuffer* RB, const char* Str, size_t size, char* start);
+static char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
 
 #define READHDR(hdr, from) RBReadFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 #define WRITEHDR(hdr, from) RBWriteFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
@@ -52,7 +22,7 @@ BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive)
 	RB->wait_at_passive = wait_at_passive;
 	RB->carry_symbols = 0;
 
-	RB->Data = MemoryAlloc(Size);
+	RB->Data = MemoryAlloc(Size, NonPagedPoolNx);
 	if (!RB->Data)
 		return FALSE;
 
@@ -180,7 +150,7 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) { //not debugged
 	if (hdr == 0)
 		return 0;
 
-	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle));
+	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), NonPagedPoolNx);
 	memset(handle, 0, sizeof(RBMSGHandle));
 		
 	handle->current_ptr = RB->Data + ((size_t)(hdr + sizeof(RBHeader) - (size_t)RB->Data) % RB->Size);
@@ -192,8 +162,8 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) { //not debugged
 
 
 char* RBGetBuffer(RingBuffer* RB, size_t size) {  
-	
 	KIRQL irql;
+	UNREFERENCED_PARAMETER(irql);
 
 	while (TRUE) {  
 		
@@ -218,7 +188,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
 		if (reqired_space > free_space) {
-			ReleaseSpinLock(&RB->spinlock, &irql);
+			ReleaseSpinLock(&RB->spinlock, irql);
 			//release spinlock
 
 			if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
@@ -243,7 +213,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 	local_hdr.size = 0;
 	WRITEHDR(&local_hdr, RB->Data + RB->head);
 
-	ReleaseSpinLock(&RB->spinlock, &irql);
+	ReleaseSpinLock(&RB->spinlock, irql);
 
 	return old_head;
 }
@@ -286,7 +256,7 @@ size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_
 
 void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle) {
 	if (!RB || !handle)
-		return 0;
+		return;
 
 	RBHeader local_header;
 

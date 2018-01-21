@@ -34,12 +34,11 @@ typedef struct
 #ifdef _KERNEL_MODE
 	PVOID DoneEvent;
 	PVOID FlushEvent;
-	KSPIN_LOCK SpinLock;
 #else
 	HANDLE DoneEvent;
 	HANDLE FlushEvent;
-	CRITICAL_SECTION CriticalSection;
 #endif
+	SpinLockObject SpinLock;
 } LoggerStruct;
 
 extern LoggerStruct Logger;

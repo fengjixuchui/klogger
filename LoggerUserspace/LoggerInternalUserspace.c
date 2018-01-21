@@ -4,7 +4,7 @@
 size_t LInitializeParameters(char* FileName)
 {
 	size_t Size = 4096;
-	strncpy(FileName, "D:\\tmp\\log.txt", MAX_LOG_FILENAME_SIZE);
+	strncpy(FileName, "log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger.Level = LDBG;
 	Logger.OutputDbg = TRUE;
@@ -70,7 +70,6 @@ LErrorCode LInitializeObjects(char* FileName)
 		CloseHandle(Logger.File);
 		return LERROR_CREATE_THREAD;
 	}
-	InitializeCriticalSection(&Logger.CriticalSection);
 
 	return LERROR_SUCCESS;
 }
@@ -83,17 +82,14 @@ void LDestroyObjects()
 	CloseHandle(Logger.FlushEvent);
 	CloseHandle(Logger.Thread);
 	CloseHandle(Logger.File);
-	DeleteCriticalSection(&Logger.CriticalSection);
 }
 
 void LSpinlockAcquire()
 {
-	EnterCriticalSection(&Logger.CriticalSection);
 }
 
 void LSpinlockRelease()
 {
-	LeaveCriticalSection(&Logger.CriticalSection);
 }
 
 void LSetFlushEvent()

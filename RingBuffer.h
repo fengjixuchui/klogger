@@ -13,21 +13,6 @@ typedef int BOOL;
 
 #include "Main.h"
 
-
-
-#ifdef _KERNEL_MODE
-#define SpinLockObject KSPIN_LOCK
-
-#else
-
-#include "windows.h"
-
-#define SpinLockObject CRITICAL_SECTION
-#define KIRQL char
-
-#endif	
-
-
 struct RingBuffer_
 {
 	size_t Size;

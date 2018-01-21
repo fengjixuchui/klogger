@@ -23,8 +23,8 @@ VOID ThreadFunction(PVOID Param)
 {
 	NTSTATUS Status, Status2;
 	IO_STATUS_BLOCK sb;
-	size_t Size;
-	const char* Buffer;
+	char* ptr;
+	size_t size;
 	LARGE_INTEGER Timeout;
 	PVOID Objects[2];
 	UNREFERENCED_PARAMETER(Param);
@@ -42,17 +42,14 @@ VOID ThreadFunction(PVOID Param)
 			continue;
 		}
 
-		while (!RBEmpty(&Logger.RB))
+		while ((ptr = RBGetReadPTR(&Logger.RB, &size)) != NULL)
 		{
-			Buffer = RBRead(&Logger.RB, &Size);
-			if (!Buffer)
-				break;
-
-			Status2 = ZwWriteFile(Logger.File, NULL, NULL, NULL, &sb, (PVOID)Buffer, (ULONG)Size, NULL, NULL);
+			Status2 = ZwWriteFile(Logger.File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
 			if (!NT_SUCCESS(Status2))
 				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d", (int)Status);
 			if (Logger.OutputDbg)
-				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)Size, Buffer);
+				DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)size, ptr);
+			RBRelease(&Logger.RB, size);
 		}
 		if (Status == STATUS_WAIT_0 + 0) // DoneEvent
 			break;

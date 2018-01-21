@@ -92,7 +92,7 @@ EXPORT_FUNC LErrorCode LInit()
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_INTERNAL;
 	}
-	InitSpinLock(&Logger->spinlock);
+	InitSpinLock(&Logger->SpinLock);
 #ifdef _KERNEL_MODE
 	Parameters = LInitializeParameters(FileName, RegPath);
 #else
@@ -192,7 +192,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	if (!Logger->Initialized)
 		return LHANDLE_INVALID;
 
-	AcquireSpinLock(&Logger->spinlock, &irql);
+	AcquireSpinLock(&Logger->SpinLock, &irql);
 
 	FreeIdetificator = (size_t) -1;
 	for (i = 0; i < Logger->IdentificatorsSize; i++)
@@ -205,7 +205,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	}
 	if (FreeIdetificator == (size_t) -1)
 	{
-		ReleaseSpinLock(&Logger->spinlock, irql);
+		ReleaseSpinLock(&Logger->SpinLock, irql);
 		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
@@ -213,7 +213,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	Logger->Identificators[(FreeIdetificator + 1) * MAX_IDENTIFICATOR_MEMORY_SIZE - 1] = 0;
 	strncpy(&Logger->Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE], Name, MAX_IDENTIFICATOR_MEMORY_SIZE);
 
-	ReleaseSpinLock(&Logger->spinlock, irql);
+	ReleaseSpinLock(&Logger->SpinLock, irql);
 
 	LOG(LHANDLE_LOGGER, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		&Logger->Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE]);
@@ -238,10 +238,10 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 	LOG(LHANDLE_LOGGER, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&Logger->Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE]);
 
-	AcquireSpinLock(&Logger->spinlock, &irql);
+	AcquireSpinLock(&Logger->SpinLock, &irql);
 	Logger->Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	Logger->NumIdentificators--;
-	ReleaseSpinLock(&Logger->spinlock, irql);
+	ReleaseSpinLock(&Logger->SpinLock, irql);
 }
 
 static void LogFull()

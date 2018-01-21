@@ -81,7 +81,7 @@ LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING 
 	if (!NT_SUCCESS(status))
 		return Parameters;
 
-	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
+	strncpy(FileName, "C:\\KLog.txt", MAX_LOG_FILENAME_SIZE); // TODO:
 
 	GET_VALUE(L"LogLevel", LDBG);
 	Logger->Level = value;
@@ -123,7 +123,7 @@ VOID ThreadFunction(PVOID Param)
 
 	Timeout.QuadPart = -10 * 1000 * Logger->Timeout;
 
-	for (;;)
+	while (Logger)
 	{
 		Status = KeWaitForMultipleObjects(2, Objects, WaitAny, Executive, KernelMode, 
 			FALSE, (Logger->Timeout == 0xFFFFFFF) ? NULL : &Timeout, NULL);
@@ -169,12 +169,30 @@ static PVOID CreateEvent(PCWSTR Name)
 	return pEvent;
 }
 
+KDEFERRED_ROUTINE FlushDeferredRoutine;
+
+VOID FlushDeferredRoutine(
+	_In_     struct _KDPC *Dpc,
+	_In_opt_ PVOID        DeferredContext,
+	_In_opt_ PVOID        SystemArgument1,
+	_In_opt_ PVOID        SystemArgument2
+)
+{
+	UNREFERENCED_PARAMETER(Dpc);
+	UNREFERENCED_PARAMETER(DeferredContext);
+	UNREFERENCED_PARAMETER(SystemArgument1);
+	UNREFERENCED_PARAMETER(SystemArgument2);
+	KeSetEvent(Logger->FlushEvent, 0, FALSE);
+}
+
+
 LErrorCode LInitializeObjects(char* FileName)
 {
 	NTSTATUS Status;
 	OBJECT_ATTRIBUTES oa;
 	UNICODE_STRING us;
 	IO_STATUS_BLOCK sb;
+	HANDLE Thread;
 	UNREFERENCED_PARAMETER(FileName);
 
 	Logger->DoneEvent = CreateEvent(L"\\BaseNamedObjects\\LoggerDoneEvent");
@@ -196,7 +214,7 @@ LErrorCode LInitializeObjects(char* FileName)
 		ObDereferenceObject(Logger->FlushEvent);
 		return LERROR_OPEN_FILE;
 	}
-	Status = PsCreateSystemThread(&Logger->Thread, 0, NULL, NULL, NULL, ThreadFunction, NULL);
+	Status = PsCreateSystemThread(&Thread, 0, NULL, NULL, NULL, ThreadFunction, NULL);
 	if (!NT_SUCCESS(Status))
 	{
 		ObDereferenceObject(Logger->DoneEvent);
@@ -204,18 +222,32 @@ LErrorCode LInitializeObjects(char* FileName)
 		ZwClose(Logger->File);
 		return LERROR_CREATE_THREAD;
 	}
+	Status = ObReferenceObjectByHandle(Thread, EVENT_ALL_ACCESS, NULL, KernelMode, &Logger->Thread, NULL);
+	if (!NT_SUCCESS(Status))
+	{
+		ObDereferenceObject(Logger->DoneEvent);
+		ObDereferenceObject(Logger->FlushEvent);
+		ZwClose(Logger->File);
+		return LERROR_CREATE_THREAD;
+	}
+	KeInitializeDpc(&Logger->FlushDpc, FlushDeferredRoutine, NULL);
 	return LERROR_SUCCESS;
 }
 
 void LDestroyObjects()
 {
-	// TODO:
+	KeRemoveQueueDpc(&Logger->FlushDpc);
+	KeSetEvent(Logger->DoneEvent, 0, FALSE);
+	KeWaitForSingleObject(Logger->Thread, Executive, KernelMode, FALSE, NULL);
+	ObDereferenceObject(Logger->DoneEvent);
+	ObDereferenceObject(Logger->FlushEvent);
+	ObDereferenceObject(Logger->Thread);
+	ZwClose(Logger->File);
 }
 
 void LSetFlushEvent()
 {
-	// TODO: KeInsertQueueDpc
-	KeSetEvent(Logger->FlushEvent, 0, FALSE);
+	KeInsertQueueDpc(&Logger->FlushDpc, NULL, NULL);
 }
 
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS])

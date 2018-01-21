@@ -23,7 +23,7 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 {
 	DWORD Result;
 	HANDLE Objects[2] = { Logger->DoneEvent, Logger->FlushEvent };
-	for (;;)
+	while (Logger)
 	{
 		Result = WaitForMultipleObjects(2, Objects, FALSE, (Logger->Timeout == 0xFFFFFFF) ? INFINITE : Logger->Timeout);
 		if (Result == WAIT_FAILED)

@@ -27,7 +27,3 @@ BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
 
 ## TODOs
  * Add LoggerTestDriver and implement LoggerDriver
- * Implement registry parse in `LInitializeParameters`
- * Implement `LDestroyObjects`
- * Use `KeInsertQueueDpc` in `LSetFlushEvent`
- * Implement `LGetTime`

@@ -28,17 +28,18 @@ typedef struct
 	unsigned FlushPercent;
 
 	HANDLE File;
-	HANDLE Thread;
-	SpinLockObject spinlock;
+	SpinLockObject SpinLock;
 
 #ifdef _KERNEL_MODE
+	KDPC FlushDpc;
+	PVOID Thread;
 	PVOID DoneEvent;
 	PVOID FlushEvent;
 #else
+	HANDLE Thread;
 	HANDLE DoneEvent;
 	HANDLE FlushEvent;
 #endif
-	SpinLockObject SpinLock;
 } LoggerStruct;
 
 extern LoggerStruct* Logger;

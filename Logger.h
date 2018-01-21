@@ -13,7 +13,21 @@
 
 #ifdef _KERNEL_MODE
 	#include <Ntstrsafe.h>
-	#define snprintf RtlStringCchPrintfA
+	#define snprintf(dst,size,format,...) KernelSnprintf(dst, size, format, __VA_ARGS__)
+
+	__inline size_t KernelSnprintf(char* Dst, size_t Size, const char* Format, ...)
+	{
+		va_list vl;
+		char* End;
+		NTSTATUS Status;
+		va_start(vl, Format);
+		Status = RtlStringCchVPrintfExA(Dst, Size, &End, NULL, 0, Format, vl);
+		if (!NT_SUCCESS(Status))
+			return 0;
+		va_end(vl);
+		return End - Dst;
+	}
+
 #else
 	#include <stdio.h>
 #endif
@@ -63,10 +77,10 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 EXPORT_FUNC void LFlush();
 
 #define MAX_LOG_SIZE 8192
+extern char __String[MAX_LOG_SIZE];
 #define LOG(Handle,Level,Format,...) \
 	do \
 	{ \
-		char __String[MAX_LOG_SIZE]; \
 		size_t __Size = snprintf(__String, MAX_LOG_SIZE, Format, __VA_ARGS__); \
 		LPrint(Handle, Level, __String, __Size); \
 	} while (0);
@@ -76,7 +90,6 @@ EXPORT_FUNC void LFlush();
 	{ \
 		if (!(Cond)) \
 		{ \
-			char __String[MAX_LOG_SIZE]; \
 			size_t __Size = sprintf(__String, "Assertion failed: %s\nAt %s (%s:%d)", #Cond, __FUNCTION__, __FILE__, __LINE__); \
 			LPrint(Handle, LEVEL_FATAL, __String, __Size); \
 			__debugbreak(); \

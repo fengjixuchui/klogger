@@ -12,16 +12,15 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pusRe
 VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
-	//LDestroy();
+	LDestroy();
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KLogger unloaded\n");
-	return;
 }
 
 NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
 	LErrorCode Code;
-	//LHANDLE handle1, handle2;
-	//int i;
+	LHANDLE handle1, handle2;
+	int i;
 	UNREFERENCED_PARAMETER(RegPath);
 
 	DriverObject->DriverUnload = DriverUnload;
@@ -64,7 +63,7 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPat
 	}
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KLogger initialized\n");
 
-	/*handle1 = LOpen("HANDLE1");
+	handle1 = LOpen("HANDLE1");
 	handle2 = LOpen("HANDLE2");
 
 	for (i = 0; i < 100; i++) {
@@ -73,7 +72,7 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPat
 	}
 
 	LClose(handle1);
-	LClose(handle2);*/
+	LClose(handle2);
 
 	return STATUS_SUCCESS;
 }

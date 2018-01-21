@@ -29,7 +29,7 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 		if (Result == WAIT_FAILED)
 		{
 			printf("WaitForMultipleObjects failed. Continue\n");
-			continue;
+			break;
 		}
 
 		char* ptr;

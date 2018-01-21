@@ -79,10 +79,10 @@ static BOOL GetRegValueString(HANDLE KeyHandle, PCWSTR ValueName, PWSTR pValue, 
 		ZwClose(KeyHandle);
 		return FALSE;
 	}
-	if (pInformation->Type == REG_SZ &&
-		pInformation->DataLength == sizeof(ULONG))
+	if (pInformation->Type == REG_SZ)
 	{
 		RtlCopyMemory(pValue, pInformation->Data, pInformation->DataLength);
+		pValue[DefaultValueSize] = 0;
 	}
 	else
 	{
@@ -94,6 +94,7 @@ static BOOL GetRegValueString(HANDLE KeyHandle, PCWSTR ValueName, PWSTR pValue, 
 			return FALSE;
 		}
 		RtlCopyMemory(pValue, DefaultValue, DefaultValueSize);
+		pValue[DefaultValueSize] = 0;
 		return TRUE;
 	}
 
@@ -167,7 +168,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 KSTART_ROUTINE ThreadFunction;
 VOID ThreadFunction(PVOID Param)
 {
-	NTSTATUS Status, Status2;
+	NTSTATUS Status;
 	IO_STATUS_BLOCK sb;
 	char* ptr;
 	size_t size;
@@ -177,7 +178,7 @@ VOID ThreadFunction(PVOID Param)
 	Objects[0] = Logger->DoneEvent;
 	Objects[1] = Logger->FlushEvent;
 
-	Timeout.QuadPart = -10 * 1000 * Logger->Timeout;
+	Timeout.QuadPart = -10LL * 1000LL * (ULONGLONG) Logger->Timeout;
 
 	while (Logger)
 	{
@@ -185,15 +186,15 @@ VOID ThreadFunction(PVOID Param)
 			FALSE, (Logger->Timeout == 0xFFFFFFF) ? NULL : &Timeout, NULL);
 		if (!NT_SUCCESS(Status))
 		{
-			DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %d. Contunue\n", (int)Status);
-			continue;
+			DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KeWaitForMultipleObjects failed with status %X\n", (int)Status);
+			break;
 		}
 
 		while ((ptr = RBGetReadPTR(&Logger->RB, &size)) != NULL)
 		{
-			Status2 = ZwWriteFile(Logger->File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
-			if (!NT_SUCCESS(Status2))
-				DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %d\n", (int)Status);
+			Status = ZwWriteFile(Logger->File, NULL, NULL, NULL, &sb, (PVOID)ptr, (ULONG)size, NULL, NULL);
+			if (!NT_SUCCESS(Status))
+				DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "ZwWriteFile failed with status %X\n", (int)Status);
 			if (Logger->OutputDbg)
 				DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "%.*s", (int)size, ptr);
 			RBRelease(&Logger->RB, size);
@@ -256,10 +257,9 @@ LErrorCode LInitializeObjects(WCHAR* FileName)
 	RtlInitUnicodeString(&us, FileName);
 	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
 	Status = ZwCreateFile(&Logger->File, GENERIC_WRITE, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
-		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SEQUENTIAL_ONLY, NULL, 0);
+		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0);
 	if (!NT_SUCCESS(Status))
 	{
-		DbgPrint("@@@@ %u %x", Status, Status);
 		ObDereferenceObject(Logger->DoneEvent);
 		ObDereferenceObject(Logger->FlushEvent);
 		return LERROR_OPEN_FILE;

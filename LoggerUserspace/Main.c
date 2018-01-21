@@ -70,7 +70,7 @@ void RBHandleTest()  //debugged
 
 int main()
 {
-	/*
+	
 
 	
 	LErrorCode Code = LInit();
@@ -99,8 +99,8 @@ int main()
 	
 
 	system("pause");
-	*/
-	RBTest();
+	
+	//RBTest();
 	
 	//RBHandleTest();
 }

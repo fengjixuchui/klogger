@@ -331,6 +331,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	
 	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
 		LogFull();
+		return FALSE;
 	}
 	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);

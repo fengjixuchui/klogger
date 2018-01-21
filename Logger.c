@@ -63,8 +63,11 @@ EXPORT_FUNC LErrorCode LInit()
 	LInitializationParameters Parameters;
 	LErrorCode Code;
 	unsigned i;
-	POOL_TYPE pool = NonPagedPoolNx;
+	POOL_TYPE pool;
+	LoggerStruct* logger_try;
+	PVOID result;
 
+	pool = NonPagedPoolNx;
 	if (Logger != NULL) {
 		if (Logger->Initialized == TRUE)
 			return LERROR_ALREADY_INITIALIZED;
@@ -72,12 +75,12 @@ EXPORT_FUNC LErrorCode LInit()
 		return LERROR_ANOTHER_THREAD_INITIALIZING;
 	}
 
-	LoggerStruct* logger_try =  MemoryAlloc(sizeof(LoggerStruct), pool);
+	logger_try =  MemoryAlloc(sizeof(LoggerStruct), pool);
 	if (!logger_try)
 		return LERROR_MEMORY_ALLOC;
 	logger_try->Initialized = FALSE;
 
-	PVOID result = InterlockedCompareExchangePointer(&Logger, logger_try, NULL);
+	result = InterlockedCompareExchangePointer(&Logger, logger_try, NULL);
 
 	if (result != NULL) {
 		if(Logger->Initialized == TRUE)
@@ -292,6 +295,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	char Format[MAX_FORMAT_SIZE] = "";
 	size_t FormatSize;
 	size_t Written;
+	RBMSGHandle* hndl;
 	char* NewLine = "\n";
 
 	if (Logger == NULL)
@@ -323,11 +327,8 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (FormatSize >= MAX_FORMAT_SIZE)
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
-	size_t format_len = strlen(Format);
-	size_t final_size = format_len + Size + 2;
-	
-	RBMSGHandle* hndl = RBReceiveHandle(&Logger->RB, final_size);
-	Written = RBHandleWrite(&Logger->RB, hndl, Format, format_len);
+	hndl = RBReceiveHandle(&Logger->RB, FormatSize + Size + 2);
+	Written = RBHandleWrite(&Logger->RB, hndl, Format, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, hndl, Str, Size);
 	Written = RBHandleWrite(&Logger->RB, hndl, NewLine, 2);
 	RBHandleClose(&Logger->RB, hndl);

@@ -11,14 +11,14 @@
 
 #define SpinLockObject KSPIN_LOCK
 
-inline void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
+__inline void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
 	if (GetIRQL() >= DISPATCH_LEVEL)
 		KeAcquireSpinLockAtDpcLevel(Kspinlock);
 	else
 		KeAcquireSpinLock(Kspinlock, irql);
 }
 
-inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
+__inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
 	if (irql >= DISPATCH_LEVEL)
 		KeReleaseSpinLockFromDpcLevel(Kspinlock);
 	else
@@ -29,6 +29,10 @@ inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
 #define AcquireSpinLock(spinlock, irql)		KernelSpinLockAcquire(spinlock, irql)
 #define ReleaseSpinLock(spinlock, irql)		KernelSpinLockRelease(spinlock, irql)
 #define DestroySpinLock(spinlock)			1
+
+#ifndef NonPagedPoolNx
+	#define NonPagedPoolNx NonPagedPool
+#endif
 
 #else
 

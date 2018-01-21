@@ -171,12 +171,8 @@ static PVOID CreateEvent(PCWSTR Name)
 
 KDEFERRED_ROUTINE FlushDeferredRoutine;
 
-VOID FlushDeferredRoutine(
-	_In_     struct _KDPC *Dpc,
-	_In_opt_ PVOID        DeferredContext,
-	_In_opt_ PVOID        SystemArgument1,
-	_In_opt_ PVOID        SystemArgument2
-)
+VOID FlushDeferredRoutine(struct _KDPC *Dpc, PVOID DeferredContext,
+	PVOID SystemArgument1, PVOID SystemArgument2)
 {
 	UNREFERENCED_PARAMETER(Dpc);
 	UNREFERENCED_PARAMETER(DeferredContext);

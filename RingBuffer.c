@@ -69,6 +69,9 @@ size_t RBFreeSize(const RingBuffer* RB) {
 
 char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
 {
+	RBHeader hdr;
+	char* msg;
+
 	if (!RB || !Size)
 		return 0;
 
@@ -79,12 +82,11 @@ char* RBGetReadPTR(RingBuffer* RB, size_t* Size)
 		return RB->Data;
 	}
 
-	RBHeader hdr;
 	READHDR(&hdr, RB->Data + RB->tail);
 	if (hdr.written == 0)
 		return 0;
 
-	char* msg = RB->Data + RB->tail + sizeof(RBHeader);
+	msg = RB->Data + RB->tail + sizeof(RBHeader);
 
 	if ((RB->tail + hdr.size) > RB->Size) {
 		RB->carry_symbols = hdr.size - (RB->Size - RB->tail);
@@ -148,7 +150,9 @@ char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start) {
 
 
 RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
-	
+	char* hdr;
+	RBMSGHandle* handle;
+
 	if (!RB || !size)
 		return 0;
 
@@ -161,11 +165,11 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
 	if ((GetIRQL() == DISPATCH_LEVEL) && (RB->pool == PagedPool)) //cannot allocate PagedPool at irql==DPC
 		return 0;
 
-	char* hdr = RBGetBuffer(RB, size);
+	hdr = RBGetBuffer(RB, size);
 	if (hdr == 0)
 		return 0;
 
-	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), RB->pool);
+	handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), RB->pool);
 	memset(handle, 0, sizeof(RBMSGHandle));
 		
 	handle->current_ptr = RB->Data + ((size_t)(hdr + sizeof(RBHeader) - (size_t)RB->Data) % RB->Size);
@@ -176,7 +180,9 @@ RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
 }
 
 
-char* RBGetBuffer(RingBuffer* RB, size_t size) {  
+char* RBGetBuffer(RingBuffer* RB, size_t size) {
+	char* old_head;
+	RBHeader local_hdr = { 0 };
 	KIRQL irql;
 	UNREFERENCED_PARAMETER(irql);
 
@@ -215,9 +221,8 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 		break;
 	}
 	
-	char* old_head = RB->Data + RB->head;
+	old_head = RB->Data + RB->head;
 
-	RBHeader local_hdr = { 0 };
 	local_hdr.size = size + sizeof(RBHeader);
 	WRITEHDR(&local_hdr, old_head);
 
@@ -235,25 +240,26 @@ char* RBGetBuffer(RingBuffer* RB, size_t size) {
 
 
 size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
+	RBHeader local_hdr = { 0 };
+	size_t data_start;
+	char* hdr;
 
 	if (!RB || !str)
 		return 0;
 
-	RBHeader local_hdr = { 0 };
 	local_hdr.size = size + sizeof(RBHeader);
 	local_hdr.written = 1;
 
-	char* hdr = RBGetBuffer(RB, size);
+	hdr = RBGetBuffer(RB, size);
 	if (hdr == 0)
 		return 0;
 
-	size_t data_start = ((size_t)hdr - (size_t)RB->Data + sizeof(RBHeader)) % RB->Size;
+	data_start = ((size_t)hdr - (size_t)RB->Data + sizeof(RBHeader)) % RB->Size;
 	RBWriteFrom(RB, str, size, RB->Data + data_start);
 	WRITEHDR(&local_hdr, hdr);
 
 	return size;
 }
-
 
 size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size) {
 	
@@ -270,10 +276,10 @@ size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_
 }
 
 void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle) {
+	RBHeader local_header;
+
 	if (!RB || !handle)
 		return;
-
-	RBHeader local_header;
 
 	READHDR(&local_header, handle->msg_header);
 	local_header.written = 1;

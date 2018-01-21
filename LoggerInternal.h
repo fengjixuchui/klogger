@@ -11,8 +11,7 @@
 #include "RingBuffer.h"
 #include "Logger.h"
 
-#define MAX_LOG_FILENAME_SIZE 1024
-
+#define MAX_LOG_FILENAME_SIZE 4096
 
 typedef struct
 {
@@ -29,13 +28,15 @@ typedef struct
 	unsigned FlushPercent;
 
 	HANDLE File;
-	HANDLE Thread;
-	SpinLockObject spinlock;
+	SpinLockObject SpinLock;
 
 #ifdef _KERNEL_MODE
+	KDPC FlushDpc;
+	PVOID Thread;
 	PVOID DoneEvent;
 	PVOID FlushEvent;
 #else
+	HANDLE Thread;
 	HANDLE DoneEvent;
 	HANDLE FlushEvent;
 #endif
@@ -55,15 +56,22 @@ enum TimeParameters
 	NUM_TIME_PARAMETERS
 };
 
+typedef struct
+{
+	BOOL Status;
+
+	size_t RingBufferSize;
+	BOOL NonPagedPool;
+	BOOL WaitAtPassive;
+} LInitializationParameters;
+
 #ifdef _KERNEL_MODE
-size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath);
+LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING RegPath);
 #else
-size_t LInitializeParameters(char* FileName);
+LInitializationParameters LInitializeParameters(WCHAR* FileName);
 #endif
-LErrorCode LInitializeObjects(char* FileName);
+LErrorCode LInitializeObjects(WCHAR* FileName);
 void LDestroyObjects();
-void LSpinlockAcquire();
-void LSpinlockRelease();
 void LSetFlushEvent();
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS]);
 

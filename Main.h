@@ -11,26 +11,28 @@
 
 #define SpinLockObject KSPIN_LOCK
 
-void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
+__inline void KernelSpinLockAcquire(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
 	if (GetIRQL() >= DISPATCH_LEVEL)
-		KeAcquireSpinLockAtDpcLevel(Kspinlock, irql);
+		KeAcquireSpinLockAtDpcLevel(Kspinlock);
 	else
-		KeAcquireSpinLock(kspinlock, irql);
+		KeAcquireSpinLock(Kspinlock, irql);
 }
 
-void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
-	if (*irql >= DISPATCH_LEVEL)
-		KeReleaseSpinLockAtDpcLevel(Kspinlock, irql);
+__inline void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, KIRQL irql) {
+	if (irql >= DISPATCH_LEVEL)
+		KeReleaseSpinLockFromDpcLevel(Kspinlock);
 	else
-		KeReleaseSpinLock(kspinlock, irql);
+		KeReleaseSpinLock(Kspinlock, irql);
 }
-
 
 #define InitSpinLock(spinlock)				KeInitializeSpinLock(spinlock)
 #define AcquireSpinLock(spinlock, irql)		KernelSpinLockAcquire(spinlock, irql)
 #define ReleaseSpinLock(spinlock, irql)		KernelSpinLockRelease(spinlock, irql)
 #define DestroySpinLock(spinlock)			1
-//I guess there is no Destroy func on kernel spinlocks
+
+#ifndef NonPagedPoolNx
+	#define NonPagedPoolNx NonPagedPool
+#endif
 
 #else
 
@@ -55,8 +57,6 @@ void KernelSpinLockRelease(PKSPIN_LOCK Kspinlock, PKIRQL irql) {
 #define AcquireSpinLock(spinlock, irql)		EnterCriticalSection(spinlock)
 #define ReleaseSpinLock(spinlock, irql)		LeaveCriticalSection(spinlock)
 #define DestroySpinLock(spinlock)			DeleteCriticalSection(spinlock)
-
-#define MM_BAD_POINTER ((void*)0)
 
 #endif
 

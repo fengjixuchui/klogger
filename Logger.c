@@ -34,7 +34,7 @@ static size_t CalculateReservedBytes();
 
 #define LHANDLE_LOGGER ((LHANDLE) 0)
 
-LoggerStruct* Logger = MM_BAD_POINTER;
+LoggerStruct* Logger = NULL;
 
 static size_t CalculateReservedBytes()
 {
@@ -55,64 +55,68 @@ static size_t CalculateReservedBytes()
 #ifdef _KERNEL_MODE
 EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath)
 #else
-EXPORT_FUNC LErrorCode LInit(POOL_TYPE pool)
+EXPORT_FUNC LErrorCode LInit()
 #endif
 {
 	size_t ReservedBytes;
-	char FileName[MAX_LOG_FILENAME_SIZE];
-	size_t Size;
+	WCHAR FileName[MAX_LOG_FILENAME_SIZE];
+	LInitializationParameters Parameters;
 	LErrorCode Code;
 	unsigned i;
+	POOL_TYPE pool;
+	LoggerStruct* logger_try;
+	PVOID result;
 
-	if (Logger != MM_BAD_POINTER) {
+	pool = NonPagedPoolNx;
+	if (Logger != NULL) {
 		if (Logger->Initialized == TRUE)
 			return LERROR_ALREADY_INITIALIZED;
 
 		return LERROR_ANOTHER_THREAD_INITIALIZING;
 	}
 
-	LoggerStruct* logger_try =  MemoryAlloc(sizeof(LoggerStruct), pool);
+	logger_try =  MemoryAlloc(sizeof(LoggerStruct), pool);
 	if (!logger_try)
 		return LERROR_MEMORY_ALLOC;
 	logger_try->Initialized = FALSE;
 
-	PVOID result = InterlockedCompareExchangePointer(&Logger, logger_try, MM_BAD_POINTER);
+	result = InterlockedCompareExchangePointer(&Logger, logger_try, NULL);
 
-	if (result != MM_BAD_POINTER) {
+	if (result != NULL) {
 		if(Logger->Initialized == TRUE)
 			return LERROR_ALREADY_INITIALIZED;
 
 		return LERROR_ANOTHER_THREAD_INITIALIZING;
-	}
-
-	
+	}	
 
 	ReservedBytes = CalculateReservedBytes();
 	if (ReservedBytes == -1) {
-		Logger = MM_BAD_POINTER;
+		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_INTERNAL;
 	}
+	InitSpinLock(&Logger->SpinLock);
 #ifdef _KERNEL_MODE
-	Size = LInitializeParameters(FileName, RegPath);
+	Parameters = LInitializeParameters(FileName, RegPath);
 #else
-	Size = LInitializeParameters(FileName);
+	Parameters = LInitializeParameters(FileName);
 #endif
-	if (Size == -1) {
-		Logger = MM_BAD_POINTER;
+	if (!Parameters.Status) {
+		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_REGISTRY;
 	}
+	pool = Parameters.NonPagedPool ? NonPagedPoolNx : PagedPool;
 	Logger->IdentificatorsSize = MAX(Logger->IdentificatorsSize, 1);
 	Logger->Level = MIN(Logger->Level, LOG_LEVEL_NONE);
 	Logger->FlushPercent = MAX(MIN(Logger->FlushPercent, 100), 1);
-	Size = MIN(Size, MIN_RING_BUFFER_SIZE);
+	Parameters.RingBufferSize = MAX(Parameters.RingBufferSize, MIN_RING_BUFFER_SIZE);
 	
 	Logger->IdentificatorsSize++; // one identificator for logger
 	Logger->NumIdentificators = 1;
 	Logger->Identificators = MemoryAlloc(Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE, pool);
 	if (!Logger->Identificators) {
-		Logger = MM_BAD_POINTER;
+		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_MEMORY_ALLOC;
 	}
@@ -120,10 +124,11 @@ EXPORT_FUNC LErrorCode LInit(POOL_TYPE pool)
 		Logger->Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger->Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger->RB, Size, ReservedBytes, 1, pool))
+
+	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, ReservedBytes, Parameters.WaitAtPassive, pool))
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
-		Logger = MM_BAD_POINTER;
+		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return LERROR_MEMORY_ALLOC;
 	}
@@ -132,51 +137,47 @@ EXPORT_FUNC LErrorCode LInit(POOL_TYPE pool)
 	if (Code != LERROR_SUCCESS)
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
-		Logger = MM_BAD_POINTER;
+		Logger = NULL;
 		RBDestroy(&(logger_try->RB));
 		MemoryFree(logger_try, sizeof(LoggerStruct));
 		return Code;
 	}
 
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms", 
-		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
-		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout);
-
 	Logger->Initialized = TRUE;
+	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
+		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
+		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
+		Parameters.WaitAtPassive ? "YES" : "NO", Parameters.NonPagedPool ? "NonPaged" : "Paged");
 
 	return LERROR_SUCCESS;
 }
 
 EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before everyone stopped logging 
 {
-	if (Logger == MM_BAD_POINTER)
+	if (Logger == NULL)
 		return;
 
 	if (Logger->Initialized == FALSE)
 		return;
 
 	if (Logger->NumIdentificators != 1 /* logger identificator */)
-		LOG(LHANDLE_LOGGER, LWRN, "%d identificators not closed!", (int)Logger->NumIdentificators - 1);
-	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
+		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators - 1);
+	LOG(LHANDLE_LOGGER, LINF, "Log destroyed\n");
 
 	LDestroyObjects();
-/*	LSpinlockAcquire();
-	if (!Logger.Initialized)
-		return;
-	LSpinlockRelease();
-*/
+	DestroySpinLock(&Logger->SpinLock);
 	MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 	RBDestroy(&(Logger->RB));
 
-
 	MemoryFree(Logger, sizeof(LoggerStruct));
 
-	Logger = MM_BAD_POINTER;
+	Logger = NULL;
 }
 
 EXPORT_FUNC BOOL LIsInitialized()
 {
-	if (Logger == MM_BAD_POINTER)
+	if (Logger == NULL)
 		return FALSE;
 
 	return Logger->Initialized;
@@ -187,14 +188,15 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	size_t FreeIdetificator;
 	unsigned i;
 	KIRQL irql;
+	UNREFERENCED_PARAMETER(irql);
 
-	if (Logger == MM_BAD_POINTER)
+	if (Logger == NULL)
 		return LHANDLE_INVALID;
 
 	if (!Logger->Initialized)
 		return LHANDLE_INVALID;
 
-	AcquireSpinLock(&Logger->spinlock, irql);
+	AcquireSpinLock(&Logger->SpinLock, &irql);
 
 	FreeIdetificator = (size_t) -1;
 	for (i = 0; i < Logger->IdentificatorsSize; i++)
@@ -207,15 +209,15 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	}
 	if (FreeIdetificator == (size_t) -1)
 	{
-		ReleaseSpinLock(&Logger->spinlock, irql);
+		ReleaseSpinLock(&Logger->SpinLock, irql);
 		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
-	Logger->NumIdentificators--;
+	Logger->NumIdentificators++;
 	Logger->Identificators[(FreeIdetificator + 1) * MAX_IDENTIFICATOR_MEMORY_SIZE - 1] = 0;
 	strncpy(&Logger->Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE], Name, MAX_IDENTIFICATOR_MEMORY_SIZE);
 
-	ReleaseSpinLock(&Logger->spinlock, irql);
+	ReleaseSpinLock(&Logger->SpinLock, irql);
 
 	LOG(LHANDLE_LOGGER, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		&Logger->Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE]);
@@ -225,7 +227,8 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 EXPORT_FUNC void LClose(LHANDLE Handle)
 {
 	KIRQL irql;
-	if (Logger == MM_BAD_POINTER)
+	UNREFERENCED_PARAMETER(irql);
+	if (Logger == NULL)
 		return;
 
 	if (!Logger->Initialized)
@@ -239,10 +242,10 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 	LOG(LHANDLE_LOGGER, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&Logger->Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE]);
 
-	AcquireSpinLock(&Logger->spinlock, irql);
+	AcquireSpinLock(&Logger->SpinLock, &irql);
 	Logger->Identificators[Handle * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	Logger->NumIdentificators--;
-	ReleaseSpinLock(&Logger->spinlock, irql);
+	ReleaseSpinLock(&Logger->SpinLock, irql);
 }
 
 static void LogFull()
@@ -293,9 +296,10 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	char Format[MAX_FORMAT_SIZE] = "";
 	size_t FormatSize;
 	size_t Written;
+	RBMSGHandle hndl = { 0 };
 	char* NewLine = "\n";
 
-	if (Logger == MM_BAD_POINTER)
+	if (Logger == NULL)
 		return FALSE;
 
 	if (!Logger->Initialized)
@@ -324,20 +328,13 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (FormatSize >= MAX_FORMAT_SIZE)
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
-	size_t format_len = strlen(Format);
-	size_t str_len = strlen(Str);
-
-	size_t final_size = format_len + str_len + 1;
-
-
 	
-	RBMSGHandle hndl = { 0 };
-	if (!RBReceiveHandle(&Logger->RB, &hndl, final_size)) {
+	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
 		LogFull();
 	}
-	Written = RBHandleWrite(&Logger->RB, &hndl, Format, format_len);
-	Written = RBHandleWrite(&Logger->RB, &hndl, Str, str_len);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
+	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
+	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;

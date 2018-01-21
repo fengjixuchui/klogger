@@ -1,10 +1,10 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-size_t LInitializeParameters(char* FileName)
+LInitializationParameters LInitializeParameters(WCHAR* FileName)
 {
-	size_t Size = 4096;
-	strncpy(FileName, "D:\\tmp\\log.txt", MAX_LOG_FILENAME_SIZE);
+	LInitializationParameters Parameters;
+	wcsncpy(FileName, L"log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger->Level = LDBG;
 	Logger->OutputDbg = TRUE;
@@ -12,16 +12,20 @@ size_t LInitializeParameters(char* FileName)
 	Logger->Timeout = 10 * 1000;
 	Logger->FlushPercent = 50;
 
-	return Size;
+	Parameters.Status = TRUE;
+	Parameters.RingBufferSize = 4096;
+	Parameters.NonPagedPool = TRUE;
+	Parameters.WaitAtPassive = FALSE;
+	return Parameters;
 }
 
 DWORD WINAPI ThreadFunction(LPVOID Param)
 {
 	DWORD Result;
 	HANDLE Objects[2] = { Logger->DoneEvent, Logger->FlushEvent };
-	for (;;)
+	while (Logger)
 	{
-		Result = WaitForMultipleObjects(2, Objects, FALSE, Logger->Timeout);
+		Result = WaitForMultipleObjects(2, Objects, FALSE, (Logger->Timeout == 0xFFFFFFF) ? INFINITE : Logger->Timeout);
 		if (Result == WAIT_FAILED)
 		{
 			printf("WaitForMultipleObjects failed. Continue\n");
@@ -32,7 +36,10 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 		size_t size;
 		while (ptr = RBGetReadPTR(&Logger->RB, &size))
 		{
-			printf("%.*s", (int)size, ptr);
+			if (!WriteFile(Logger->File, ptr, (DWORD)size, NULL, NULL))
+				printf("WriteFile failed\n");
+			if (Logger->OutputDbg)
+				printf("%.*s", (int)size, ptr);
 			RBRelease(&Logger->RB, size);
 		}
 
@@ -42,7 +49,7 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 	return 0;
 }
 
-LErrorCode LInitializeObjects(char* FileName)
+LErrorCode LInitializeObjects(WCHAR* FileName)
 {
 	Logger->DoneEvent = CreateEvent(NULL, FALSE, FALSE, "DoneEvent");
 	if (!Logger->DoneEvent)
@@ -54,7 +61,7 @@ LErrorCode LInitializeObjects(char* FileName)
 		return LERROR_CREATE_EVENT;
 	}
 
-	Logger->File = CreateFile(FileName, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	Logger->File = CreateFileW(FileName, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (Logger->File == INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(Logger->DoneEvent);
@@ -70,7 +77,6 @@ LErrorCode LInitializeObjects(char* FileName)
 		CloseHandle(Logger->File);
 		return LERROR_CREATE_THREAD;
 	}
-	InitSpinLock(&Logger->spinlock);
 
 	return LERROR_SUCCESS;
 }
@@ -83,7 +89,6 @@ void LDestroyObjects()
 	CloseHandle(Logger->FlushEvent);
 	CloseHandle(Logger->Thread);
 	CloseHandle(Logger->File);
-	DestroySpinLock(&Logger->spinlock);
 }
 
 void LSetFlushEvent()
@@ -102,5 +107,5 @@ void LGetTime(unsigned Time[NUM_TIME_PARAMETERS])
 	Time[TIME_HOUR] = LocalTime.wHour;
 	Time[TIME_MINUTE] = LocalTime.wMinute;
 	Time[TIME_SECOND] = LocalTime.wSecond;
-	Time[TIME_MILLISECONDS] = LocalTime.wYear;
+	Time[TIME_MILLISECONDS] = LocalTime.wMilliseconds;
 }

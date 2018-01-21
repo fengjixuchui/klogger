@@ -26,10 +26,4 @@ BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
  * Andrey Zhadchenko - [azhadchenko](https://github.com/azhadchenko)
 
 ## TODOs
- * Fix problems with synchronization
  * Add LoggerTestDriver
- * Implement registry parse in `LInitializeParameters`
- * Implement `LDestroyObjects`
- * Implement LSpinlockAcquire & LSpinlockRelease
- * Use `KeInsertQueueDpc` in `LSetFlushEvent`
- * Implement `LGetTime`

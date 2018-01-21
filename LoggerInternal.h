@@ -56,7 +56,7 @@ enum TimeParameters
 };
 
 #ifdef _KERNEL_MODE
-size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath);
+size_t LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath);
 #else
 size_t LInitializeParameters(char* FileName);
 #endif

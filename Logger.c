@@ -53,7 +53,7 @@ static size_t CalculateReservedBytes()
 }
 
 #ifdef _KERNEL_MODE
-EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath)
+EXPORT_FUNC LErrorCode LInit(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 #else
 EXPORT_FUNC LErrorCode LInit()
 #endif
@@ -94,7 +94,7 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 	InitSpinLock(&Logger->spinlock);
 #ifdef _KERNEL_MODE
-	Size = LInitializeParameters(FileName, RegPath);
+	Size = LInitializeParameters(FileName, DriverObject, RegPath);
 #else
 	Size = LInitializeParameters(FileName);
 #endif
@@ -187,6 +187,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	size_t FreeIdetificator;
 	unsigned i;
 	KIRQL irql;
+	UNREFERENCED_PARAMETER(irql);
 
 	if (Logger == NULL)
 		return LHANDLE_INVALID;
@@ -225,6 +226,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 EXPORT_FUNC void LClose(LHANDLE Handle)
 {
 	KIRQL irql;
+	UNREFERENCED_PARAMETER(irql);
 	if (Logger == NULL)
 		return;
 

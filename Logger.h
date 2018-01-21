@@ -51,7 +51,7 @@ typedef enum
 } LErrorCode;
 
 #ifdef _KERNEL_MODE
-EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath);
+EXPORT_FUNC LErrorCode LInit(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath);
 #else
 EXPORT_FUNC LErrorCode LInit();
 #endif

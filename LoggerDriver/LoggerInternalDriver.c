@@ -2,7 +2,7 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath)
+size_t LInitializeParameters(char* FileName, PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
 	size_t Size = 4096;
 	strncpy(FileName, "C:\\Users\\Jeka\\Desktop\\Log.txt", MAX_LOG_FILENAME_SIZE);
@@ -13,6 +13,7 @@ size_t LInitializeParameters(char* FileName, PUNICODE_STRING RegPath)
 	Logger->Timeout = 10 * 1000;
 	Logger->FlushPercent = 90;
 
+	UNREFERENCED_PARAMETER(DriverObject);
 	UNREFERENCED_PARAMETER(RegPath); // TODO: use RegPath
 
 	return Size;

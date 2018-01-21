@@ -35,7 +35,10 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 		size_t size;
 		while (ptr = RBGetReadPTR(&Logger->RB, &size))
 		{
-			printf("%.*s", (int)size, ptr);
+			if (!WriteFile(Logger->File, ptr, (DWORD)size, NULL, NULL))
+				printf("WriteFile failed\n");
+			if (Logger->OutputDbg)
+				printf("%.*s", (int)size, ptr);
 			RBRelease(&Logger->RB, size);
 		}
 

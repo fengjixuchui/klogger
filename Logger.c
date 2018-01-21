@@ -121,7 +121,7 @@ EXPORT_FUNC LErrorCode LInit()
 		Logger->Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger->Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, 1, pool))
+	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, Parameters.WaitAtPassive, pool))
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		Logger = NULL;

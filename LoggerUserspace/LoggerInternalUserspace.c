@@ -15,6 +15,7 @@ LInitializationParameters LInitializeParameters(char* FileName)
 	Parameters.Status = TRUE;
 	Parameters.RingBufferSize = 4096;
 	Parameters.NonPagedPool = TRUE;
+	Parameters.WaitAtPassive = FALSE;
 	return Parameters;
 }
 

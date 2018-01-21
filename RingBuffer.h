@@ -24,7 +24,7 @@ typedef struct
 
 	size_t carry_symbols;
 	POOL_TYPE pool;
-	char wait_at_passive;
+	BOOL wait_at_passive;
 } RingBuffer;
 
 typedef struct {
@@ -38,7 +38,7 @@ typedef struct {
 	size_t symb_left;
 } RBMSGHandle;
 
-BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
+BOOL RBInit(RingBuffer* RB, size_t Size, BOOL wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
 void RBDestroy(RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
 size_t RBFreeSize(const RingBuffer* RB);

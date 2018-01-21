@@ -9,7 +9,7 @@ static char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start);
 #define WRITEHDR(hdr, from) RBWriteFrom(RB, (char*)hdr, sizeof(RBHeader), (char*)(from))
 
 
-BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool)
+BOOL RBInit(RingBuffer* RB, size_t Size, BOOL wait_at_passive, POOL_TYPE pool)
 {
 	if (!RB)
 		return FALSE;

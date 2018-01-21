@@ -61,6 +61,7 @@ typedef struct
 
 	size_t RingBufferSize;
 	BOOL NonPagedPool;
+	BOOL WaitAtPassive;
 } LInitializationParameters;
 
 #ifdef _KERNEL_MODE

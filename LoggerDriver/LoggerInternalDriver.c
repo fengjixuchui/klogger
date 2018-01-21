@@ -19,6 +19,7 @@ LInitializationParameters LInitializeParameters(char* FileName, PDRIVER_OBJECT D
 	Parameters.Status = TRUE;
 	Parameters.RingBufferSize = 4096;
 	Parameters.NonPagedPool = TRUE;
+	Parameters.WaitAtPassive = FALSE;
 	return Parameters;
 }
 

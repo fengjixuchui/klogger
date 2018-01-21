@@ -135,7 +135,8 @@ EXPORT_FUNC LErrorCode LInit()
 		Logger->Identificators[i * MAX_IDENTIFICATOR_MEMORY_SIZE] = 0;
 	strncpy(Logger->Identificators, "LOGGER", MAX_IDENTIFICATOR_NAME_SIZE);
 
-	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, Parameters.WaitAtPassive, pool))
+
+	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, ReservedBytes, Parameters.WaitAtPassive, pool))
 	{
 		MemoryFree(Logger->Identificators, Logger->IdentificatorsSize * MAX_IDENTIFICATOR_MEMORY_SIZE);
 		Logger = NULL;
@@ -268,7 +269,7 @@ static void LogFull()
 	if (Size > LOG_FULL_STRING_SIZE)
 		return; // log is full. just return
 
-	RBWrite(&Logger->RB, Str, Size);
+	RBWriteReserved(&Logger->RB, Str, Size);
 }
 
 static void GetLogLevelString(LogLevel Level, char* LevelString)
@@ -309,7 +310,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	char Format[MAX_FORMAT_SIZE] = "";
 	size_t FormatSize;
 	size_t Written;
-	RBMSGHandle* hndl;
+	RBMSGHandle hndl = { 0 };
 	char* NewLine = "\n";
 
 	if (Logger == NULL)
@@ -341,11 +342,15 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (FormatSize >= MAX_FORMAT_SIZE)
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
-	hndl = RBReceiveHandle(&Logger->RB, FormatSize + Size + 2);
-	Written = RBHandleWrite(&Logger->RB, hndl, Format, FormatSize);
-	Written = RBHandleWrite(&Logger->RB, hndl, Str, Size);
-	Written = RBHandleWrite(&Logger->RB, hndl, NewLine, 2);
-	RBHandleClose(&Logger->RB, hndl);
+	
+	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
+		LogFull();
+		return FALSE;
+	}
+	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
+	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
+	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;
 }

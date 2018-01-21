@@ -107,5 +107,5 @@ void LGetTime(unsigned Time[NUM_TIME_PARAMETERS])
 	Time[TIME_HOUR] = LocalTime.wHour;
 	Time[TIME_MINUTE] = LocalTime.wMinute;
 	Time[TIME_SECOND] = LocalTime.wSecond;
-	Time[TIME_MILLISECONDS] = LocalTime.wYear;
+	Time[TIME_MILLISECONDS] = LocalTime.wMilliseconds;
 }

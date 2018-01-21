@@ -252,6 +252,18 @@ void LSetFlushEvent()
 
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS])
 {
-	// TODO:
-	UNREFERENCED_PARAMETER(Time);
+	LARGE_INTEGER SystemTime;
+	LARGE_INTEGER LocalTime;
+	TIME_FIELDS TimeFields;
+	KeQuerySystemTime(&SystemTime);
+	ExSystemTimeToLocalTime(&SystemTime, &LocalTime);
+	RtlTimeToTimeFields(&LocalTime, &TimeFields);
+
+	Time[TIME_YEAR] = TimeFields.Year;
+	Time[TIME_MONTH] = TimeFields.Month;
+	Time[TIME_DAY] = TimeFields.Day;
+	Time[TIME_HOUR] = TimeFields.Hour;
+	Time[TIME_MINUTE] = TimeFields.Minute;
+	Time[TIME_SECOND] = TimeFields.Second;
+	Time[TIME_MILLISECONDS] = TimeFields.Milliseconds;
 }

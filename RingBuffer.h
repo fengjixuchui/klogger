@@ -41,7 +41,7 @@ typedef struct {
 } RBMSGHandle;
 
 
-BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserver_size, BOOL wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
+BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved_size, BOOL wait_at_passive, POOL_TYPE pool);  //to use a IRQL > 1 you need to specify non-paged pool 
 void RBDestroy(RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
 size_t RBFreeSize(const RingBuffer* RB);

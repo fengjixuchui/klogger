@@ -12,7 +12,7 @@ static size_t RBWriteData(RingBuffer* RB, const char* str, size_t size, size_t r
 
 
 
-BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved, BOOL wait_at_passive, POOL_TYPE pool)
+BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved_size, BOOL wait_at_passive, POOL_TYPE pool)
 {
 	if (!RB)
 		return FALSE;
@@ -25,7 +25,7 @@ BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved, BOOL wait_at_passive, 
 	RB->wait_at_passive = wait_at_passive;
 	RB->carry_symbols = 0;
 	RB->pool = pool;
-	RB->reserved = reserved + sizeof(RBHeader);
+	RB->reserved = reserved_size + sizeof(RBHeader);
 	RB->reserved_used = 0;
 
 	RB->Data = MemoryAlloc(Size, pool);

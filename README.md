@@ -24,6 +24,3 @@ BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
 ## Authors
  * Nikitenko Evgeny - [jjeka](https://github.com/jjeka)
  * Andrey Zhadchenko - [azhadchenko](https://github.com/azhadchenko)
-
-## TODOs
- * Add LoggerTestDriver

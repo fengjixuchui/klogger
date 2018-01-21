@@ -52,7 +52,7 @@ BOOL RBInit(RingBuffer* RB, size_t Size, char wait_at_passive, POOL_TYPE pool); 
 void RBDestroy(RingBuffer* RB);
 size_t RBSize(const RingBuffer* RB);
 size_t RBFreeSize(const RingBuffer* RB);
-RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size);
+BOOL RBReceiveHandle(RingBuffer* RB, RBMSGHandle* handle, size_t size);
 size_t RBHandleWrite(RingBuffer* RB, RBMSGHandle* handle, const char* str, size_t size);
 void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle);
 size_t RBWrite(RingBuffer* RB, const char* str, size_t size);

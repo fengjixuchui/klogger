@@ -37,11 +37,12 @@ void RBHandleTest()  //debugged
 	for (;;)
 	{
 		size_t Written;
-		RBMSGHandle* hndl = RBReceiveHandle(&RB, sizeof(TEST_STR)+sizeof(TEST_STR2));
-		Written = RBHandleWrite(&RB, hndl, TEST_STR, sizeof(TEST_STR) - 1);
-		Written = RBHandleWrite(&RB, hndl, TEST_STR2, sizeof(TEST_STR2) - 1);
-		Written = RBHandleWrite(&RB, hndl, " ", 2);
-		RBHandleClose(&RB, hndl);
+		RBMSGHandle hndl = { 0 };
+		RBReceiveHandle(&RB, &hndl, sizeof(TEST_STR) + sizeof(TEST_STR2));
+		Written = RBHandleWrite(&RB, &hndl, TEST_STR, sizeof(TEST_STR) - 1);
+		Written = RBHandleWrite(&RB, &hndl, TEST_STR2, sizeof(TEST_STR2) - 1);
+		Written = RBHandleWrite(&RB, &hndl, " ", 2);
+		RBHandleClose(&RB, &hndl);
 
 		char* ptr;
 		size_t size;

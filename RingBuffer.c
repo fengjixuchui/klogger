@@ -149,32 +149,23 @@ char* RBReadFrom(RingBuffer* RB, char* dst, size_t size, char* start) {
 }
 
 
-RBMSGHandle* RBReceiveHandle(RingBuffer* RB, size_t size) {
+BOOL RBReceiveHandle(RingBuffer* RB, RBMSGHandle* handle, size_t size) {
 	
-	if (!RB || !size)
-		return 0;
+	if (!RB || !size || !handle)
+		return FALSE;
 
 	if (size > RB->Size)
-		return 0;
-
-	if (GetIRQL() > DISPATCH_LEVEL)
-		return 0; //cannot use ExAllocatePoolWithTag at irql>=DPC
-
-	if ((GetIRQL() == DISPATCH_LEVEL) && (RB->pool == PagedPool)) //cannot allocate PagedPool at irql==DPC
-		return 0;
+		return FALSE;
 
 	char* hdr = RBGetBuffer(RB, size);
 	if (hdr == 0)
-		return 0;
-
-	RBMSGHandle* handle = (RBMSGHandle*)MemoryAlloc(sizeof(RBMSGHandle), RB->pool);
-	memset(handle, 0, sizeof(RBMSGHandle));
+		return FALSE;
 		
 	handle->current_ptr = RB->Data + ((size_t)(hdr + sizeof(RBHeader) - (size_t)RB->Data) % RB->Size);
 	handle->msg_header = hdr;
 	handle->symb_left = size;
 
-	return handle;
+	return TRUE;
 }
 
 
@@ -281,6 +272,5 @@ void RBHandleClose(RingBuffer* RB, RBMSGHandle* handle) {
 	local_header.written = 1;
 	WRITEHDR(&local_header, handle->msg_header);
 
-	MemoryFree(handle, sizeof(RBMSGHandle));
 	return;
 }

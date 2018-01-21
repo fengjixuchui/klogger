@@ -328,12 +328,15 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	size_t str_len = strlen(Str);
 
 	size_t final_size = format_len + str_len + 2;
+
+
 	
-	RBMSGHandle* hndl = RBReceiveHandle(&Logger->RB, final_size);
-	Written = RBHandleWrite(&Logger->RB, hndl, Format, format_len);
-	Written = RBHandleWrite(&Logger->RB, hndl, Str, str_len);
-	Written = RBHandleWrite(&Logger->RB, hndl, NewLine, 2);
-	RBHandleClose(&Logger->RB, hndl);
+	RBMSGHandle hndl = { 0 };
+	RBReceiveHandle(&Logger->RB, &hndl, final_size);
+	Written = RBHandleWrite(&Logger->RB, &hndl, Format, format_len);
+	Written = RBHandleWrite(&Logger->RB, &hndl, Str, str_len);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
+	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;
 }

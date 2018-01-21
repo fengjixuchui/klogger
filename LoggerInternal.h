@@ -66,11 +66,11 @@ typedef struct
 } LInitializationParameters;
 
 #ifdef _KERNEL_MODE
-LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING RegPath);
+LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING RegPath);
 #else
-LInitializationParameters LInitializeParameters(char* FileName);
+LInitializationParameters LInitializeParameters(WCHAR* FileName);
 #endif
-LErrorCode LInitializeObjects(char* FileName);
+LErrorCode LInitializeObjects(WCHAR* FileName);
 void LDestroyObjects();
 void LSetFlushEvent();
 void LGetTime(unsigned Time[NUM_TIME_PARAMETERS]);

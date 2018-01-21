@@ -1,10 +1,10 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
 
-LInitializationParameters LInitializeParameters(char* FileName)
+LInitializationParameters LInitializeParameters(WCHAR* FileName)
 {
 	LInitializationParameters Parameters;
-	strncpy(FileName, "log.txt", MAX_LOG_FILENAME_SIZE);
+	wcsncpy(FileName, L"log.txt", MAX_LOG_FILENAME_SIZE);
 
 	Logger->Level = LDBG;
 	Logger->OutputDbg = TRUE;
@@ -49,7 +49,7 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 	return 0;
 }
 
-LErrorCode LInitializeObjects(char* FileName)
+LErrorCode LInitializeObjects(WCHAR* FileName)
 {
 	Logger->DoneEvent = CreateEvent(NULL, FALSE, FALSE, "DoneEvent");
 	if (!Logger->DoneEvent)
@@ -61,7 +61,7 @@ LErrorCode LInitializeObjects(char* FileName)
 		return LERROR_CREATE_EVENT;
 	}
 
-	Logger->File = CreateFile(FileName, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	Logger->File = CreateFileW(FileName, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (Logger->File == INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(Logger->DoneEvent);

@@ -62,7 +62,7 @@ do { \
 	} \
 } while (0)
 
-LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING RegPath)
+LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING RegPath)
 {
 	HANDLE KeyHandle;
 	OBJECT_ATTRIBUTES ObjectAttributes;
@@ -81,7 +81,7 @@ LInitializationParameters LInitializeParameters(char* FileName, PUNICODE_STRING 
 	if (!NT_SUCCESS(status))
 		return Parameters;
 
-	strncpy(FileName, "C:\\KLog.txt", MAX_LOG_FILENAME_SIZE); // TODO:
+	wcsncpy(FileName, L"C:\\KLog.txt", MAX_LOG_FILENAME_SIZE); // TODO:
 
 	GET_VALUE(L"LogLevel", LDBG);
 	Logger->Level = value;
@@ -185,8 +185,7 @@ VOID FlushDeferredRoutine(
 	KeSetEvent(Logger->FlushEvent, 0, FALSE);
 }
 
-
-LErrorCode LInitializeObjects(char* FileName)
+LErrorCode LInitializeObjects(WCHAR* FileName)
 {
 	NTSTATUS Status;
 	OBJECT_ATTRIBUTES oa;
@@ -204,7 +203,7 @@ LErrorCode LInitializeObjects(char* FileName)
 		ObDereferenceObject(Logger->DoneEvent);
 		return LERROR_CREATE_EVENT;
 	}
-	RtlInitUnicodeString(&us, L"C:\\Users\\jeka\\Desktop\\Log.txt");
+	RtlInitUnicodeString(&us, FileName);
 	InitializeObjectAttributes(&oa, &us, OBJ_CASE_INSENSITIVE, NULL, NULL);
 	Status = ZwCreateFile(&Logger->File, GENERIC_WRITE, &oa, &sb, NULL, FILE_ATTRIBUTE_NORMAL,
 		FILE_SHARE_READ, FILE_SUPERSEDE, FILE_SEQUENTIAL_ONLY, NULL, 0);

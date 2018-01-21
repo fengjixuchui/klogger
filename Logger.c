@@ -59,7 +59,7 @@ EXPORT_FUNC LErrorCode LInit()
 #endif
 {
 	size_t ReservedBytes;
-	char FileName[MAX_LOG_FILENAME_SIZE];
+	WCHAR FileName[MAX_LOG_FILENAME_SIZE];
 	LInitializationParameters Parameters;
 	LErrorCode Code;
 	unsigned i;
@@ -140,7 +140,7 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 
 	Logger->Initialized = TRUE;
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %s\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
 		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
 		FileName, Logger->FlushPercent, (int)Logger->IdentificatorsSize - 1, (int)Logger->Level, 
 		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 

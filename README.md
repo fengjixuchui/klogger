@@ -26,4 +26,4 @@ BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
  * Andrey Zhadchenko - [azhadchenko](https://github.com/azhadchenko)
 
 ## TODOs
- * Add LoggerTestDriver and implement LoggerDriver
+ * Add LoggerTestDriver

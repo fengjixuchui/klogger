@@ -1,0 +1,11 @@
+TARGETNAME=LoggerTestDriver
+TARGETPATH=.
+TARGETTYPE=DRIVER
+
+C_DEFINES=$(C_DEFINES)  -D_KERNEL_MODE
+
+SOURCES= \
+	Main.c
+
+TARGETLIBS= \
+	../LoggerDriver/amd64/LoggerDriver.lib

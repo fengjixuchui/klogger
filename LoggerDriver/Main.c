@@ -9,18 +9,29 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING pusRe
 	#pragma alloc_text (INIT, DriverEntry)
 #endif
 
+NTSTATUS DllInitialize(PUNICODE_STRING RegistryPath)
+{
+	UNREFERENCED_PARAMETER(RegistryPath);
+	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger: DllInitialize called\n");
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS DllUnload(void)
+{
+	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger: DllUnload called\n");
+	return STATUS_SUCCESS;
+}
+
 VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 	LDestroy();
-	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KLogger unloaded\n");
+	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger unloaded\n");
 }
 
 NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
 	LErrorCode Code;
-	LHANDLE handle1, handle2;
-	int i;
 	UNREFERENCED_PARAMETER(RegPath);
 
 	DriverObject->DriverUnload = DriverUnload;
@@ -61,18 +72,7 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPat
 		DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "Failed to init klogger. Error %d (%s)\n", Code, Error);
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
-	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "KLogger initialized\n");
-
-	handle1 = LOpen("HANDLE1");
-	handle2 = LOpen("HANDLE2");
-
-	for (i = 0; i < 100; i++) {
-		LOG(handle1, LDBG, "Debug message %d", i * 2);
-		LOG(handle2, LDBG, "Debug message %d", i * 2 + 1);
-	}
-
-	LClose(handle1);
-	LClose(handle2);
+	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger initialized\n");
 
 	return STATUS_SUCCESS;
 }

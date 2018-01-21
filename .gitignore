@@ -1,10 +1,15 @@
 *.suo
 *.user
+*.filters
 .vs
 LoggerDriver/amd64
 LoggerDriver/x64
 LoggerDriver/objchk_win7_amd64
 LoggerDriver/buildchk_win7_amd64.log
+LoggerTestDriver/amd64
+LoggerTestDriver/x64
+LoggerTestDriver/objchk_win7_amd64
+LoggerTestDriver/buildchk_win7_amd64.log
 LoggerUserspace/x64
 x64
 Debug/

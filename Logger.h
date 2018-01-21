@@ -77,7 +77,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 EXPORT_FUNC void LFlush();
 
 #define MAX_LOG_SIZE 8192
-extern char __String[MAX_LOG_SIZE];
+EXPORT_FUNC extern char __String[MAX_LOG_SIZE];
 #define LOG(Handle,Level,Format,...) \
 	do \
 	{ \

@@ -4,7 +4,7 @@
 #include "RingBuffer.h"
 #include "LoggerInternal.h"
 
-char __String[MAX_LOG_SIZE];
+EXPORT_FUNC  char __String[MAX_LOG_SIZE];
 
 #ifndef MIN
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))

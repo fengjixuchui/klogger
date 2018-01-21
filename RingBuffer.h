@@ -20,7 +20,7 @@ typedef struct
 	size_t tail;
 	char* Data;
 
-	SpinLockObject* spinlock;
+	SpinLockObject spinlock;
 
 	size_t carry_symbols;
 	size_t reserved;

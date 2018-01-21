@@ -31,15 +31,9 @@ BOOL RBInit(RingBuffer* RB, size_t Size, size_t reserved_size, BOOL wait_at_pass
 	RB->Data = MemoryAlloc(Size, pool);
 	if (!RB->Data)
 		return FALSE;
-	RB->spinlock = MemoryAlloc(sizeof(SpinLockObject), pool);
-	if (!RB->spinlock) {
-		MemoryFree(RB->Data, Size);
-		return FALSE;
-	}
-
 
 	memset(RB->Data, 0, sizeof(RBHeader)); //writing first zero header
-	InitSpinLock(RB->spinlock);
+	InitSpinLock(&RB->spinlock);
 
 	return TRUE;
 }
@@ -51,9 +45,7 @@ void RBDestroy(RingBuffer* RB)
 
 	MemoryFree(RB->Data, RB->Size);
 	RB->Data = NULL;
-	DestroySpinLock(RB->spinlock);
-	MemoryFree(RB->spinlock, sizeof(SpinLockObject));
-	RB->spinlock = NULL;
+	DestroySpinLock(&RB->spinlock);
 }
 
 
@@ -203,13 +195,13 @@ char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {
 		}
 			
 		//spinlock Acquire
-		AcquireSpinLock(RB->spinlock, &irql);
+		AcquireSpinLock(&RB->spinlock, &irql);
 
 		free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
 
 		if (reqired_space > free_space) {
-			ReleaseSpinLock(RB->spinlock, irql);
+			ReleaseSpinLock(&RB->spinlock, irql);
 			//release spinlock
 
 			if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
@@ -238,7 +230,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {
 	local_hdr.size = 0;
 	WRITEHDR(&local_hdr, RB->Data + RB->head);
 
-	ReleaseSpinLock(RB->spinlock, irql);
+	ReleaseSpinLock(&RB->spinlock, irql);
 
 	return old_head;
 }

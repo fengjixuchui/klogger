@@ -269,11 +269,11 @@ size_t RBWriteData(RingBuffer* RB, const char* str, size_t size, size_t reserved
 
 
 size_t RBWrite(RingBuffer* RB, const char* str, size_t size) {
-	RBWriteData(RB, str, size, RB->reserved);
+	return RBWriteData(RB, str, size, RB->reserved);
 }
 
 size_t RBWriteReserved(RingBuffer* RB, const char* str, size_t size) {
-	RBWriteData(RB, str, size, 0);
+	return RBWriteData(RB, str, size, 0);
 }
 
 

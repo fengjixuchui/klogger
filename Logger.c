@@ -177,7 +177,7 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 
 	if (Logger->NumIdentificators != 1 /* logger identificator */)
 		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators - 1);
-	LOG(LHANDLE_LOGGER, LINF, "Log destroyed\n");
+	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
 
 	LDestroyObjects();
 	DestroySpinLock(&Logger->SpinLock);

@@ -62,7 +62,7 @@ static BOOL GetRegValueString(HANDLE KeyHandle, PCWSTR ValueName, PWSTR pValue, 
 
 	RtlInitUnicodeString(&UnicodeValueName, ValueName);
 
-	uInformationSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + ValueMaxSize;
+	uInformationSize = sizeof(KEY_VALUE_PARTIAL_INFORMATION) + ValueMaxSize * sizeof(WCHAR);
 
 	pInformation = MemoryAlloc(uInformationSize, PagedPool);
 	if (pInformation == NULL)
@@ -82,18 +82,18 @@ static BOOL GetRegValueString(HANDLE KeyHandle, PCWSTR ValueName, PWSTR pValue, 
 	if (pInformation->Type == REG_SZ)
 	{
 		RtlCopyMemory(pValue, pInformation->Data, pInformation->DataLength);
-		pValue[DefaultValueSize] = 0;
+		pValue[pInformation->DataLength] = 0;
 	}
 	else
 	{
-		status = ZwSetValueKey(KeyHandle, &UnicodeValueName, 0, REG_SZ, (PVOID) DefaultValue, DefaultValueSize);
+		status = ZwSetValueKey(KeyHandle, &UnicodeValueName, 0, REG_SZ, (PVOID) DefaultValue, DefaultValueSize * sizeof(WCHAR));
 		if (!NT_SUCCESS(status))
 		{
 			ZwClose(KeyHandle);
 			MemoryFree(pInformation, uInformationSize);
 			return FALSE;
 		}
-		RtlCopyMemory(pValue, DefaultValue, DefaultValueSize);
+		RtlCopyMemory(pValue, DefaultValue, DefaultValueSize * sizeof(WCHAR));
 		pValue[DefaultValueSize] = 0;
 		return TRUE;
 	}
@@ -134,7 +134,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 		return Parameters;
 
 	if (!GetRegValueString(KeyHandle, L"LogPath", FileName, MAX_LOG_FILENAME_SIZE, DefaultFileName, 
-		(DWORD) wcslen(DefaultFileName) * sizeof (WCHAR)))
+		(DWORD) wcslen(DefaultFileName)))
 	{
 		ZwClose(KeyHandle);
 		return Parameters;

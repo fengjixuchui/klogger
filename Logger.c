@@ -157,7 +157,7 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 		return;
 
 	if (Logger->NumIdentificators != 1 /* logger identificator */)
-		LOG(LHANDLE_LOGGER, LWRN, "%d identificators not closed!", (int)Logger->NumIdentificators - 1);
+		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators - 1);
 	LOG(LHANDLE_LOGGER, LINF, "Log destroyed");
 
 	LDestroyObjects();
@@ -207,7 +207,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
-	Logger->NumIdentificators--;
+	Logger->NumIdentificators++;
 	Logger->Identificators[(FreeIdetificator + 1) * MAX_IDENTIFICATOR_MEMORY_SIZE - 1] = 0;
 	strncpy(&Logger->Identificators[FreeIdetificator * MAX_IDENTIFICATOR_MEMORY_SIZE], Name, MAX_IDENTIFICATOR_MEMORY_SIZE);
 

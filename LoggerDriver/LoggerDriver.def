@@ -8,4 +8,4 @@ EXPORTS
   LClose
   LPrint
   LFlush
-  __String
+  LOG

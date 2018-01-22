@@ -1,5 +1,6 @@
 #include <ntddk.h>
 #include "../Logger.h"
+#include "../LoggerInternal.h"
 
 #define STDCALL __stdcall
 

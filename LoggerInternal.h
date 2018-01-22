@@ -12,15 +12,25 @@
 #include "Logger.h"
 
 #define MAX_LOG_FILENAME_SIZE 4096
+#define ID_STR_SIZE 16
+#define STORAGE_SIZE 1024
+
+typedef struct {
+	char* storage;
+	char name[ID_STR_SIZE];
+} Identificator;
 
 typedef struct
 {
 	BOOL Initialized;
 
 	RingBuffer RB;
-	char* Identificators;
-	size_t NumIdentificators;
-	size_t IdentificatorsSize;
+
+	Identificator* Identificators;
+	int IdCount;
+	int NumIdentificators;
+
+	POOL_TYPE pool;
 
 	LogLevel Level;
 	BOOL OutputDbg;

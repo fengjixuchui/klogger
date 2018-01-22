@@ -145,7 +145,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName, PUNICODE_STRING
 	GET_VALUE(L"OutputDbg", FALSE);
 	Logger->OutputDbg = (value != 0);
 	GET_VALUE(L"NumIdentificators", 10);
-	Logger->IdentificatorsSize = value;
+	Logger->IdCount = value;
 	GET_VALUE(L"Timeout", 10 * 1000);
 	Logger->Timeout = value;
 	GET_VALUE(L"FlushPercent", 90);

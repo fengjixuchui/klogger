@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include "../RingBuffer.h"
 #include "../Logger.h"
+#include "../LoggerInternal.h"
 #include "assert.h"
 
 #define TEST_STR "1234567890-"
@@ -67,6 +68,8 @@ void RBHandleTest()  //debugged
 
 	RBDestroy(&RB);
 }
+
+extern LoggerStruct* Logger;
 
 int main()
 {

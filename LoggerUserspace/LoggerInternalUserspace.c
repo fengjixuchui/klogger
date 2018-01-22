@@ -8,7 +8,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName)
 
 	Logger->Level = LDBG;
 	Logger->OutputDbg = TRUE;
-	Logger->IdentificatorsSize = 10;
+	Logger->IdCount = 10;
 	Logger->Timeout = 10 * 1000;
 	Logger->FlushPercent = 50;
 

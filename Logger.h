@@ -76,13 +76,14 @@ EXPORT_FUNC void LClose(LHANDLE Handle);
 EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
 EXPORT_FUNC void LFlush();
 
-#define MAX_LOG_SIZE 8192
-EXPORT_FUNC extern char __String[MAX_LOG_SIZE];
+//BEWARE ITS REDEFINED
+#define STORAGE_SIZE 1024
+
 #define LOG(Handle,Level,Format,...) \
 	do \
 	{ \
-		size_t __Size = snprintf(__String, MAX_LOG_SIZE, Format, __VA_ARGS__); \
-		LPrint(Handle, Level, __String, __Size); \
+		size_t __Size = snprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, __VA_ARGS__); \
+		LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size); \
 	} while (0);
 
 #define LASSERT(Handle,Cond) \
@@ -90,8 +91,8 @@ EXPORT_FUNC extern char __String[MAX_LOG_SIZE];
 	{ \
 		if (!(Cond)) \
 		{ \
-			size_t __Size = sprintf(__String, "Assertion failed: %s\nAt %s (%s:%d)", #Cond, __FUNCTION__, __FILE__, __LINE__); \
-			LPrint(Handle, LEVEL_FATAL, __String, __Size); \
+			size_t __Size = sprintf(Logger->Identificators[Handle].storage, "Assertion failed: %s\nAt %s (%s:%d)", #Cond, __FUNCTION__, __FILE__, __LINE__); \
+			LPrint(Handle, LEVEL_FATAL, Logger->Identificators[Handle].storage, __Size); \
 			__debugbreak(); \
 		} \
 	} while (0);

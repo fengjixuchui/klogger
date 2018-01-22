@@ -79,6 +79,8 @@ EXPORT_FUNC void LFlush();
 //BEWARE ITS REDEFINED
 #define STORAGE_SIZE 1024
 
+extern LoggerStruct* Logger;
+
 #define LOG(Handle,Level,Format,...) \
 	do \
 	{ \

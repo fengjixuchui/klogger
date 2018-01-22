@@ -69,7 +69,7 @@ void RBHandleTest()  //debugged
 	RBDestroy(&RB);
 }
 
-extern LoggerStruct* Logger;
+
 
 int main()
 {

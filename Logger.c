@@ -62,7 +62,7 @@ EXPORT_FUNC LErrorCode LInit()
 	WCHAR* FileName;
 	LInitializationParameters Parameters;
 	LErrorCode Code;
-	unsigned i;
+	int i;
 	POOL_TYPE pool;
 	LoggerStruct* logger_try;
 	PVOID result;
@@ -168,7 +168,7 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 
 	Logger->Initialized = TRUE;
-	LOG(i, LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+	LOG(&i, LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
 		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
 		FileName, Logger->FlushPercent, (int)Logger->IdCount - 1, (int)Logger->Level, 
 		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
@@ -189,9 +189,9 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 		return;
 
 	if (Logger->NumIdentificators != 0)
-		LOG(i, LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
+		LOG(&i, LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
 	
-	LOG(i, LHANDLE_LOGGER, LINF, "Log destroyed\n");
+	LOG(&i, LHANDLE_LOGGER, LINF, "Log destroyed\n");
 
 	LDestroyObjects();
 	DestroySpinLock(&Logger->SpinLock);
@@ -223,7 +223,7 @@ EXPORT_FUNC BOOL LIsInitialized()
 EXPORT_FUNC LHANDLE LOpen(const char* Name)
 {
 	size_t FreeIdetificator;
-	unsigned i;
+	int i;
 	KIRQL irql;
 	char* LHandleStorage;
 	UNREFERENCED_PARAMETER(irql);
@@ -252,7 +252,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 
 	if (FreeIdetificator == (size_t) -1)
 	{
-		LOG(i, LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
+		LOG(&i, LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
 
@@ -269,7 +269,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	Logger->Identificators[FreeIdetificator].name[ID_STR_SIZE - 1] = 0;
 	Logger->NumIdentificators++;
 
-	LOG(i, (LHANDLE)FreeIdetificator, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
+	LOG(&i, (LHANDLE)FreeIdetificator, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		Logger->Identificators[FreeIdetificator].name);
 	return (LHANDLE)FreeIdetificator;
 }
@@ -286,13 +286,13 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 
 	if (!Logger->Initialized)
 		return;
-	if (Handle >= Logger->IdCount || Handle == 0)
+	if (Handle >= (unsigned)Logger->IdCount || Handle == 0)
 	{
-		LOG(a, LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
+		LOG(&a, LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
 		return;
 	}
 
-	LOG(a, Handle, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
+	LOG(&a, Handle, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&(Logger->Identificators[Handle].name[0]));
 
 	storage = Logger->Identificators[Handle].storage;
@@ -363,24 +363,23 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	size_t Written;
 	RBMSGHandle hndl = { 0 };
 	int a;
-	char* NewLine = "\n";
 
 	if (Logger == NULL)
 		return FALSE;
 
 	if (!Logger->Initialized)
 		return FALSE;
-	if (Handle >= Logger->IdCount)
+	if (Handle >= (unsigned)Logger->IdCount)
 	{
 		if(GetIRQL() == PASSIVE_LEVEL)
-			LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
+			LOG(&a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
 		return FALSE;
 	}
 
 	if (Level >= LOG_LEVEL_NONE) 
 	{
 		if (GetIRQL() == PASSIVE_LEVEL)
-			LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+			LOG(&a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
 		return FALSE;
 	}
 	if (Level < Logger->Level)
@@ -422,4 +421,28 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 
 EXPORT_FUNC void LFlush() {
 	LSetFlushEvent();
+}
+
+#ifdef _KERNEL_MODE
+
+#define FORMAT() RtlStringCchVPrintfExA(Logger->Identificators[Handle].storage, STORAGE_SIZE, &end, NULL, 0, Format, vl)
+
+#else
+
+#include <stdio.h>
+#include <wchar.h>
+#define FORMAT() 	_vsnprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, vl)
+
+#endif
+
+EXPORT_FUNC LOG(int* ret, LHANDLE Handle, LogLevel Level, const char* Format, ...) {
+	va_list vl;
+	size_t __Size;
+	va_start(vl, Format);
+	char* end;
+
+	__Size = FORMAT();
+	*ret = LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size);
+
+	va_end(vl);
 }

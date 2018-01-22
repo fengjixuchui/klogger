@@ -75,26 +75,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name);
 EXPORT_FUNC void LClose(LHANDLE Handle);
 EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
 EXPORT_FUNC void LFlush();
+EXPORT_FUNC LOG(int* ret, LHANDLE Handle, LogLevel Level, const char* Format, ...);
 
-//BEWARE ITS REDEFINED
-#define STORAGE_SIZE 1024
-
-#define LOG(ret, Handle,Level,Format,...) \
-	do \
-	{ \
-		size_t __Size = snprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, __VA_ARGS__); \
-		ret = LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size); \
-	} while (0);
-
-#define LASSERT(Handle,Cond) \
-	do \
-	{ \
-		if (!(Cond)) \
-		{ \
-			size_t __Size = sprintf(Logger->Identificators[Handle].storage, "Assertion failed: %s\nAt %s (%s:%d)", #Cond, __FUNCTION__, __FILE__, __LINE__); \
-			LPrint(Handle, LEVEL_FATAL, Logger->Identificators[Handle].storage, __Size); \
-			__debugbreak(); \
-		} \
-	} while (0);
 
 #endif // __LOGGER__

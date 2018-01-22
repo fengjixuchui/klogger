@@ -1,7 +1,6 @@
 #include <windows.h> 
 #include "../RingBuffer.h"
 #include "../Logger.h"
-#include "../LoggerInternal.h"
 #include "assert.h"
 
 
@@ -83,7 +82,7 @@ DWORD WINAPI ThreadFunc(VOID)
 	LHANDLE handle1 = LOpen(hndl_name);
 
 	do {
-		LOG(result, handle1, LDBG, "Debug message %d", i);
+		LOG(&result, handle1, LDBG, "Debug message %d", i);
 		i++;
 	} while (result == TRUE);
 	
@@ -142,8 +141,8 @@ int main()
 	LHANDLE handle3 = LOpen("HANDLE3");
 
 	for (int i = 0; i < 100; i++) {
-		LOG(ret, handle1, LDBG, "Debug message %d", i*2);
-		LOG(ret, handle2, LDBG, "Debug message %d", i*2+1);
+		LOG(&ret, handle1, LDBG, "Debug message %d", i*2);
+		LOG(&ret, handle2, LDBG, "Debug message %d", i*2+1);
 		if (ret != TRUE) {
 			LFlush();
 		}

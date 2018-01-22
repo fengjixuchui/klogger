@@ -69,7 +69,7 @@ LErrorCode LInit(PUNICODE_STRING RegPath); // IRQL Passive
 #else
 LErrorCode LInit();
 #endif
-void LDestroy();
+void LDestroy(); // IRQL Passive
 EXPORT_FUNC BOOL LIsInitialized(); // All IRQLs
 EXPORT_FUNC LHANDLE LOpen(const char* Name); // IRQL Passive
 EXPORT_FUNC void LClose(LHANDLE Handle); // IRQL Passive

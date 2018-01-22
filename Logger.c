@@ -418,27 +418,20 @@ EXPORT_FUNC void LFlush() {
 	LSetFlushEvent();
 }
 
-#ifdef _KERNEL_MODE
-
-#define FORMAT() RtlStringCchVPrintfExA(Logger->Identificators[Handle].storage, STORAGE_SIZE, &end, NULL, 0, Format, vl)
-
-#else
-
-#include <stdio.h>
-#include <wchar.h>
-#define FORMAT() 	_vsnprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, vl)
-
-#endif
-
 EXPORT_FUNC BOOL LOG(LHANDLE Handle, LogLevel Level, const char* Format, ...) {
 	va_list vl;
-	size_t __Size;
+	size_t Size;
 	va_start(vl, Format);
 	char* end;
 	UNREFERENCED_PARAMETER(end);
 
-	__Size = FORMAT();
-	BOOL Result = LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size);
+#ifndef _KERNEL_MODE
+	Size = _vsnprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, vl);
+#else
+	RtlStringCchVPrintfExA(Logger->Identificators[Handle].storage, STORAGE_SIZE, &end, NULL, 0, Format, vl);
+	Size = end - Logger->Identificators[Handle].storage;
+#endif
+	BOOL Result = LPrint(Handle, Level, Logger->Identificators[Handle].storage, Size);
 
 	va_end(vl);
 	return Result;

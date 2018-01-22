@@ -29,63 +29,6 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger unloaded\n");
 }
 
-#define SIZE 15
-#define THREAD_COUNT 3
-#define MSG_COUNT 100
-
-KSTART_ROUTINE ThreadTestMax;
-VOID ThreadTestMax(PVOID Param)
-{
-	UNREFERENCED_PARAMETER(Param);
-	int i = 0;
-	size_t hndl = (size_t)PsGetCurrentThreadId();
-	char hndl_name[SIZE] = { 0 };
-	KIRQL newirql = DISPATCH_LEVEL;
-	KIRQL oldirql = PASSIVE_LEVEL;
-	int result;
-
-	snprintf(hndl_name, SIZE, "%d", (int)hndl);
-	hndl = LOpen(hndl_name);
-
-	KeRaiseIrql(newirql, &oldirql);
-
-	for (i = 0; i < MSG_COUNT; i++) {
-		result = LOG((LHANDLE) hndl, LDBG, "Debug message %d", i);
-		i++;
-
-		if (result != TRUE)
-			break;
-	}
-
-	KeLowerIrql(oldirql);
-
-	return;
-}
-
-void test_max() {
-	HANDLE threads[THREAD_COUNT] = { 0 };
-	int i = 0;
-	NTSTATUS Status;
-	PVOID waitobj[THREAD_COUNT] = { 0 };
-
-	for (i = 0; i < THREAD_COUNT; i++) {
-		Status = PsCreateSystemThread(&threads[i], 0, NULL, NULL, NULL, ThreadTestMax, NULL);
-		if (!NT_SUCCESS(Status))
-			return;
-	}
-
-	for (i = 0; i < THREAD_COUNT; i++) {
-		Status = ObReferenceObjectByHandle(threads[i], EVENT_ALL_ACCESS, NULL, KernelMode, &waitobj[i], NULL);
-		if (!NT_SUCCESS(Status))
-			return;
-	}
-
-	for (i = 0; i < THREAD_COUNT; i++)
-		Status = KeWaitForSingleObject(&waitobj[i], Executive, KernelMode, FALSE, NULL);
-
-
-}
-
 NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
 	LErrorCode Code;

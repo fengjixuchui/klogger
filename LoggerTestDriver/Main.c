@@ -16,26 +16,76 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "Test driver unloaded\n");
 }
 
+
+#define SIZE 15
+#define THREAD_COUNT 3
+#define MSG_COUNT 10000
+
+KSTART_ROUTINE ThreadTestMax;
+VOID ThreadTestMax(PVOID Param)
+{
+	UNREFERENCED_PARAMETER(Param);
+	int i = 0;
+	size_t hndl = (size_t)PsGetCurrentThreadId();
+	LHANDLE h;
+	char hndl_name[SIZE] = { 0 };
+	KIRQL newirql = DISPATCH_LEVEL;
+	KIRQL oldirql = PASSIVE_LEVEL;
+	int result;
+
+	snprintf(hndl_name, SIZE, "%d", (int)hndl);
+	h = LOpen(hndl_name);
+
+	KeRaiseIrql(newirql, &oldirql);
+
+	for (i = 0; i < MSG_COUNT; i++) {
+		result = LPrint(h, LDBG, "Debug message", sizeof("Debug message"));
+		i++;
+
+		if (result != TRUE)
+			break;
+	}
+
+	KeLowerIrql(oldirql);
+
+	LClose(h);
+}
+
+void test_max() {
+	HANDLE threads[THREAD_COUNT] = { 0 };
+	int i = 0;
+	NTSTATUS Status;
+	PVOID waitobj[THREAD_COUNT] = { 0 };
+	for (i = 0; i < THREAD_COUNT; i++) {
+		Status = PsCreateSystemThread(&threads[i], 0, NULL, NULL, NULL, ThreadTestMax, NULL);
+		if (!NT_SUCCESS(Status))
+			return;
+	}
+
+	for (i = 0; i < THREAD_COUNT; i++) {
+		Status = ObReferenceObjectByHandle(threads[i], EVENT_ALL_ACCESS, NULL, KernelMode, &waitobj[i], NULL);
+		if (!NT_SUCCESS(Status))
+			return;
+		ZwClose(threads[i]);
+	}
+
+	for (i = 0; i < THREAD_COUNT; i++)
+		Status = KeWaitForSingleObject(waitobj[i], Executive, KernelMode, FALSE, NULL);
+
+
+	for (i = 0; i < THREAD_COUNT; i++)
+		ObDereferenceObject(waitobj[i]);
+}
+
 NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
-	LHANDLE handle1, handle2;
-	int i;
 	UNREFERENCED_PARAMETER(RegPath);
 
 	DriverObject->DriverUnload = DriverUnload;
 
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "Test driver initialized\n");
 
-	handle1 = LOpen("HANDLE1");
-	handle2 = LOpen("HANDLE2");
-
-	for (i = 0; i < 100; i++) {
-		LOG(handle1, LDBG, "Debug message %d", i * 2);
-		LOG(handle2, LDBG, "Debug message %d", i * 2 + 1);
-	}
-
-	LClose(handle1);
-	LClose(handle2);
+	test_max();
 
 	return STATUS_SUCCESS;
 }

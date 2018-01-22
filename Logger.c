@@ -343,13 +343,13 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
 	
-	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
+	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 1)) {
 		LogFull();
 		return FALSE;
 	}
 	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;

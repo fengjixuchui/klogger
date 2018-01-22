@@ -83,6 +83,7 @@ int main()
 
 	LHANDLE handle1 = LOpen("HANDLE1");
 	LHANDLE handle2 = LOpen("HANDLE2");
+	LHANDLE handle3 = LOpen("HANDLE3");
 
 	for (int i = 0; i < 100; i++) {
 		LOG(handle1, LDBG, "Debug message %d", i*2);
@@ -91,6 +92,7 @@ int main()
 
 	LClose(handle1);
 	LClose(handle2);
+	LClose(handle3);
 
 	//Sleep(100000);
 	Sleep(1000);

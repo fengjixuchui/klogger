@@ -1,5 +1,6 @@
 #include "../LoggerInternal.h"
 #include "../Logger.h"
+#include "assert.h"
 
 LInitializationParameters LInitializeParameters(WCHAR* FileName)
 {
@@ -13,7 +14,7 @@ LInitializationParameters LInitializeParameters(WCHAR* FileName)
 	Logger->FlushPercent = 50;
 
 	Parameters.Status = TRUE;
-	Parameters.RingBufferSize = 4096;
+	Parameters.RingBufferSize = 4096*16;
 	Parameters.NonPagedPool = TRUE;
 	Parameters.WaitAtPassive = FALSE;
 	return Parameters;
@@ -40,6 +41,9 @@ DWORD WINAPI ThreadFunction(LPVOID Param)
 				printf("WriteFile failed\n");
 			if (Logger->OutputDbg)
 				printf("%.*s", (int)size, ptr);
+
+
+
 			RBRelease(&Logger->RB, size);
 		}
 

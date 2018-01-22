@@ -49,7 +49,7 @@ static size_t CalculateReservedBytes()
 	if (ReservedBytes >= LOG_FULL_STRING_SIZE)
 		return (size_t) -1;
 
-	return ReservedBytes;
+	return ReservedBytes + 30;
 }
 
 #ifdef _KERNEL_MODE
@@ -390,9 +390,10 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 
 	GetLogLevelString(Level, LevelString);
 
+	
 	if ((RBFreeSize(&Logger->RB) * 100 / RBSize(&Logger->RB)) <= Logger->FlushPercent)
 		LSetFlushEvent();
-
+		
 	Identificator = Logger->Identificators[Handle].name;
 
 	FormatSize = sizeof (LOG_FORMAT) - 1;
@@ -413,7 +414,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	}
 	Written = RBHandleWrite(&Logger->RB, &hndl, String, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
+	Written = RBHandleWrite(&Logger->RB, &hndl, "\n", 1);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;

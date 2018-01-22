@@ -173,19 +173,20 @@ BOOL RBReceiveHandle(RingBuffer* RB, RBMSGHandle* handle, size_t size) {
 char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {  
 	char* old_head;
 	RBHeader local_hdr = { 0 };
-  size_t reserve_usage;
+    size_t reserve_usage;
 
 	KIRQL irql;
 	UNREFERENCED_PARAMETER(irql);
 
-	while (TRUE) {  
-		
+	while (TRUE) {
+
 		//Infinitely waiting for free space at passive level with flag (not sure if its wise)
 
 
-		size_t reqired_space = size + 2 * sizeof(RBHeader) + reserved;  //2x header - HDR_MSG_NEXTHDR
+		size_t reqired_space = size + 2 * sizeof(RBHeader);  //2x header - HDR_MSG_NEXTHDR
 		size_t free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
+		free_space = (((int)free_space - (int)reserved) > 0) ? free_space - reserved : 0;
 
 		if (reqired_space > free_space) {
 			if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
@@ -199,6 +200,7 @@ char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {
 
 		free_space = (RB->head > RB->tail) ? RB->tail + RB->Size - RB->head : RB->tail - RB->head;
 		free_space = free_space + RB->Size * (RB->head == RB->tail);
+		free_space = (((int)free_space - (int)reserved) > 0) ? free_space - reserved : 0;
 
 		if (reqired_space > free_space) {
 			ReleaseSpinLock(&RB->spinlock, irql);
@@ -210,9 +212,17 @@ char* RBGetBuffer(RingBuffer* RB, size_t size, size_t reserved) {
 			return 0;
 		}
 
-		if (!reserved) {
-			reserve_usage = (reqired_space + reserved > free_space) ? free_space - reqired_space : 0;
-			RB->reserved_used = reserve_usage;
+		if (reserved == 0) {
+			if(RB->reserved - RB->reserved_used < reqired_space) {
+				ReleaseSpinLock(&RB->spinlock, irql);
+				//release spinlock
+
+				if (RB->wait_at_passive && (GetIRQL() == PASSIVE_LEVEL))
+					continue;
+
+				return 0;
+			}
+			RB->reserved_used += reqired_space;
 		}
 		
 		break;

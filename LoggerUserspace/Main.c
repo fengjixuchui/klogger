@@ -144,6 +144,9 @@ int main()
 	for (int i = 0; i < 100; i++) {
 		LOG(ret, handle1, LDBG, "Debug message %d", i*2);
 		LOG(ret, handle2, LDBG, "Debug message %d", i*2+1);
+		if (ret != TRUE) {
+			LFlush();
+		}
 	}
 
 	LClose(handle1);
@@ -153,9 +156,8 @@ int main()
 	//Sleep(100000);
 	Sleep(1000);
 	LFlush();
-	LDestroy();
 	
-
+	
 	
 	//RBTest();
 	
@@ -163,6 +165,7 @@ int main()
 	*/
 	RBMuthithreadTest();
 	LFlush();
+	LDestroy();
 	system("pause");
 
 }

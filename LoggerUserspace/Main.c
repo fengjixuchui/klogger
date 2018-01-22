@@ -1,8 +1,9 @@
-#include <Windows.h>
+#include <windows.h> 
 #include "../RingBuffer.h"
 #include "../Logger.h"
 #include "../LoggerInternal.h"
 #include "assert.h"
+
 
 #define TEST_STR "1234567890-"
 #define TEST_STR2 "0987654321"
@@ -69,15 +70,67 @@ void RBHandleTest()  //debugged
 	RBDestroy(&RB);
 }
 
+#define THREADCOUNT 4
+#define SIZE 15
+
+DWORD WINAPI ThreadFunc(VOID)
+{
+	int i = 0;
+	int result;
+	char hndl_name[SIZE] = { 0 };
+	snprintf(hndl_name, SIZE, "%d", (int)GetCurrentThreadId());
+
+	LHANDLE handle1 = LOpen(hndl_name);
+
+	do {
+		LOG(result, handle1, LDBG, "Debug message %d", i);
+		i++;
+	} while (result == TRUE);
+	
+
+	return 0;
+}
+
+void RBMuthithreadTest() {
+
+	DWORD IDThread;
+	HANDLE hThread[THREADCOUNT];
+	int i;
+
+	LErrorCode Code = LInit();
+
+	if (Code != LERROR_SUCCESS)
+	{
+		printf("Failed to init log. Error %d\n", Code);
+		return;
+	}
+
+	for (i = 0; i < THREADCOUNT; i++)
+	{
+		hThread[i] = CreateThread(NULL, // default security attributes 
+			0,                           // use default stack size 
+			(LPTHREAD_START_ROUTINE)ThreadFunc, // thread function 
+			NULL,                    // no thread function argument 
+			0,                       // use default creation flags 
+			&IDThread);              // returns thread identifier 
+
+									 // Check the return value for success. 
+		if (hThread[i] == NULL)
+			return;
+	}
+
+	for (i = 0; i < THREADCOUNT; i++)
+		WaitForSingleObject(hThread[i], INFINITE);
+
+}
 
 
 int main()
 {
-	
-
-	
+	/*
+	int ret = 0; 
 	LErrorCode Code = LInit();
-
+	
 	if (Code != LERROR_SUCCESS)
 	{
 		printf("Failed to init log. Error %d\n", Code);
@@ -89,8 +142,8 @@ int main()
 	LHANDLE handle3 = LOpen("HANDLE3");
 
 	for (int i = 0; i < 100; i++) {
-		LOG(handle1, LDBG, "Debug message %d", i*2);
-		LOG(handle2, LDBG, "Debug message %d", i*2+1);
+		LOG(ret, handle1, LDBG, "Debug message %d", i*2);
+		LOG(ret, handle2, LDBG, "Debug message %d", i*2+1);
 	}
 
 	LClose(handle1);
@@ -103,9 +156,13 @@ int main()
 	LDestroy();
 	
 
-	system("pause");
 	
 	//RBTest();
 	
 	//RBHandleTest();
+	*/
+	RBMuthithreadTest();
+	LFlush();
+	system("pause");
+
 }

@@ -79,13 +79,11 @@ EXPORT_FUNC void LFlush();
 //BEWARE ITS REDEFINED
 #define STORAGE_SIZE 1024
 
-extern LoggerStruct* Logger;
-
-#define LOG(Handle,Level,Format,...) \
+#define LOG(ret, Handle,Level,Format,...) \
 	do \
 	{ \
 		size_t __Size = snprintf(Logger->Identificators[Handle].storage, STORAGE_SIZE, Format, __VA_ARGS__); \
-		LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size); \
+		ret = LPrint(Handle, Level, Logger->Identificators[Handle].storage, __Size); \
 	} while (0);
 
 #define LASSERT(Handle,Cond) \

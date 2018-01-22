@@ -148,7 +148,7 @@ EXPORT_FUNC LErrorCode LInit()
 
 	if (!RBInit(&Logger->RB, Parameters.RingBufferSize, ReservedBytes, Parameters.WaitAtPassive, pool))
 	{
-		MemoryFree((Logger->Identificators[LHANDLE_LOGGER].storage, STORAGE_SIZE));
+		MemoryFree(Logger->Identificators[LHANDLE_LOGGER].storage, STORAGE_SIZE);
 		MemoryFree(Logger->Identificators, Logger->IdCount * sizeof(Identificator));
 		Logger = NULL;
 		MemoryFree(logger_try, sizeof(LoggerStruct));
@@ -159,7 +159,7 @@ EXPORT_FUNC LErrorCode LInit()
 	Code = LInitializeObjects(FileName);
 	if (Code != LERROR_SUCCESS)
 	{
-		MemoryFree((Logger->Identificators[LHANDLE_LOGGER].storage, STORAGE_SIZE));
+		MemoryFree(Logger->Identificators[LHANDLE_LOGGER].storage, STORAGE_SIZE);
 		MemoryFree(Logger->Identificators, Logger->IdCount * sizeof(Identificator));
 		Logger = NULL;
 		RBDestroy(&(logger_try->RB));
@@ -169,7 +169,7 @@ EXPORT_FUNC LErrorCode LInit()
 	}
 
 	Logger->Initialized = TRUE;
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+	LOG(i, LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
 		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
 		FileName, Logger->FlushPercent, (int)Logger->IdCount - 1, (int)Logger->Level, 
 		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
@@ -190,9 +190,9 @@ EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before ev
 		return;
 
 	if (Logger->NumIdentificators != 0)
-		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
+		LOG(i, LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
 	
-	LOG(LHANDLE_LOGGER, LINF, "Log destroyed\n");
+	LOG(i, LHANDLE_LOGGER, LINF, "Log destroyed\n");
 
 	LDestroyObjects();
 	DestroySpinLock(&Logger->SpinLock);
@@ -253,7 +253,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 
 	if (FreeIdetificator == (size_t) -1)
 	{
-		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
+		LOG(i, LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
 
@@ -270,7 +270,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	Logger->Identificators[FreeIdetificator].name[ID_STR_SIZE - 1] = 0;
 	Logger->NumIdentificators++;
 
-	LOG(LHANDLE_LOGGER, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
+	LOG(i, (LHANDLE)FreeIdetificator, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		Logger->Identificators[FreeIdetificator].name);
 	return (LHANDLE)FreeIdetificator;
 }
@@ -279,6 +279,7 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 {
 	KIRQL irql;
 	UNREFERENCED_PARAMETER(irql);
+	int a;
 	char* storage;
 
 	if (Logger == NULL)
@@ -288,11 +289,11 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 		return;
 	if (Handle >= Logger->IdCount || Handle == 0)
 	{
-		LOG(LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
+		LOG(a, LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
 		return;
 	}
 
-	LOG(LHANDLE_LOGGER, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
+	LOG(a, Handle, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&(Logger->Identificators[Handle].name[0]));
 
 	storage = Logger->Identificators[Handle].storage;
@@ -352,6 +353,7 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	size_t FormatSize;
 	size_t Written;
 	RBMSGHandle hndl = { 0 };
+	int a;
 	char* NewLine = "\n";
 
 	if (Logger == NULL)
@@ -361,11 +363,11 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 		return FALSE;
 	if (Handle >= Logger->IdCount)
 	{
-		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
+		LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
 		InvalidIdentificator = TRUE;
 	}
 	if (Level >= LOG_LEVEL_NONE)
-		LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+		LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
 	if (Level < Logger->Level)
 		return TRUE;
 
@@ -384,13 +386,13 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 		return FALSE; // log format overflow. In this case we can't call LOG. Just return
 
 	
-	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 1)) {
+	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
 		LogFull(Handle);
 		return FALSE;
 	}
 	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;

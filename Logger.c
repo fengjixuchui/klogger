@@ -166,7 +166,7 @@ LErrorCode LInit()
 	}
 
 	Logger->Initialized = TRUE;
-	LOG(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
+	LPrintFormat(LHANDLE_LOGGER, LINF, "Log inited\nFilename: %ws\nFlush: %u%%\nNum identificators: %d\nLevel: %d\nOutput dbg: %s\nTimeout: %dms\n"
 		"Ring buffer size: %u\nWait at passive: %s\nMemory pool type: %s", 
 		FileName, Logger->FlushPercent, (int)Logger->IdCount - 1, (int)Logger->Level, 
 		Logger->OutputDbg ? "YES" : "NO", Logger->Timeout, (unsigned int) Parameters.RingBufferSize, 
@@ -186,9 +186,9 @@ void LDestroy()  //Library user responsibility not to call before everyone stopp
 		return;
 
 	if (Logger->NumIdentificators != 0)
-		LOG(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
+		LPrintFormat(LHANDLE_LOGGER, LWRN, "%u identificators not closed!", (int)Logger->NumIdentificators);
 	
-	LOG(LHANDLE_LOGGER, LINF, "Log destroyed\n");
+	LPrintFormat(LHANDLE_LOGGER, LINF, "Log destroyed\n");
 
 	LDestroyObjects();
 	DestroySpinLock(&Logger->SpinLock);
@@ -249,14 +249,14 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 
 	if (FreeIdetificator == (size_t) -1)
 	{
-		LOG(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
+		LPrintFormat(LHANDLE_LOGGER, LERR, "Try to open log. Log idetificators is full");
 		return LHANDLE_INVALID;
 	}
 
 	LHandleStorage = MemoryAlloc(STORAGE_SIZE, Logger->pool);
 	if (!LHandleStorage) {
 		Logger->Identificators[FreeIdetificator].storage = NULL;
-		return LERROR_MEMORY_ALLOC;
+		return LHANDLE_INVALID;
 	}
 
 	Logger->Identificators[FreeIdetificator].storage = LHandleStorage;
@@ -266,7 +266,7 @@ EXPORT_FUNC LHANDLE LOpen(const char* Name)
 	Logger->Identificators[FreeIdetificator].name[ID_STR_SIZE - 1] = 0;
 	Logger->NumIdentificators++;
 
-	LOG((LHANDLE)FreeIdetificator, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
+	LPrintFormat((LHANDLE)FreeIdetificator, LINF, "Log opened! Handle %u. Name: %s", (unsigned)FreeIdetificator,
 		Logger->Identificators[FreeIdetificator].name);
 	return (LHANDLE)FreeIdetificator;
 }
@@ -284,11 +284,11 @@ EXPORT_FUNC void LClose(LHANDLE Handle)
 		return;
 	if (Handle >= (unsigned)Logger->IdCount || Handle == 0)
 	{
-		LOG(LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
+		LPrintFormat(LHANDLE_LOGGER, LERR, "Try to close log. Invalid log handle %u", (unsigned)Handle);
 		return;
 	}
 
-	LOG(Handle, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
+	LPrintFormat(Handle, LINF, "Log closed! Handle %u. Name: %s", (unsigned)Handle,
 		&(Logger->Identificators[Handle].name[0]));
 
 	storage = Logger->Identificators[Handle].storage;
@@ -367,14 +367,14 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if (Handle >= (unsigned)Logger->IdCount)
 	{
 		if(GetIRQL() == PASSIVE_LEVEL)
-			LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
+			LPrintFormat(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
 		return FALSE;
 	}
 
 	if (Level >= LOG_LEVEL_NONE) 
 	{
 		if (GetIRQL() == PASSIVE_LEVEL)
-			LOG(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+			LPrintFormat(LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
 		return FALSE;
 	}
 	if (Level < Logger->Level)
@@ -418,7 +418,7 @@ EXPORT_FUNC void LFlush() {
 	LSetFlushEvent();
 }
 
-EXPORT_FUNC BOOL LOG(LHANDLE Handle, LogLevel Level, const char* Format, ...) {
+EXPORT_FUNC BOOL LPrintFormat(LHANDLE Handle, LogLevel Level, const char* Format, ...) {
 	va_list vl;
 	size_t Size;
 	va_start(vl, Format);

@@ -65,17 +65,17 @@ typedef enum
 } LErrorCode;
 
 #ifdef _KERNEL_MODE
-LErrorCode LInit(PUNICODE_STRING RegPath);
+LErrorCode LInit(PUNICODE_STRING RegPath); // IRQL Passive
 #else
 LErrorCode LInit();
 #endif
 void LDestroy();
-EXPORT_FUNC BOOL LIsInitialized();
-EXPORT_FUNC LHANDLE LOpen(const char* Name);
-EXPORT_FUNC void LClose(LHANDLE Handle);
-EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size);
-EXPORT_FUNC void LFlush();
-EXPORT_FUNC BOOL LOG(LHANDLE Handle, LogLevel Level, const char* Format, ...);
+EXPORT_FUNC BOOL LIsInitialized(); // All IRQLs
+EXPORT_FUNC LHANDLE LOpen(const char* Name); // IRQL Passive
+EXPORT_FUNC void LClose(LHANDLE Handle); // IRQL Passive
+EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size); // All IRQLS
+EXPORT_FUNC void LFlush(); // All IRQLS
+EXPORT_FUNC BOOL LPrintFormat(LHANDLE Handle, LogLevel Level, const char* Format, ...); // IRQL Passive
 
 
 #endif // __LOGGER__

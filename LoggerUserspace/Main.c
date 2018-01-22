@@ -7,7 +7,7 @@
 #define TEST_STR "1234567890-"
 #define TEST_STR2 "0987654321"
 
-#define FULL "LOG IS FULL!"
+#define FULL "LPrintFormat IS FULL!"
 
 void RBTest()  //debugged
 {
@@ -82,7 +82,7 @@ DWORD WINAPI ThreadFunc(VOID)
 	LHANDLE handle1 = LOpen(hndl_name);
 
 	do {
-		result = LOG(handle1, LDBG, "Debug message %d", i);
+		result = LPrintFormat(handle1, LDBG, "Debug message %d", i);
 		i++;
 	} while (result == TRUE);
 	
@@ -141,8 +141,8 @@ int main()
 	LHANDLE handle3 = LOpen("HANDLE3");
 
 	for (int i = 0; i < 100; i++) {
-		ret = LOG(handle1, LDBG, "Debug message %d", i*2);
-		ret = LOG(handle2, LDBG, "Debug message %d", i*2+1);
+		ret = LPrintFormat(handle1, LDBG, "Debug message %d", i*2);
+		ret = LPrintFormat(handle2, LDBG, "Debug message %d", i*2+1);
 		if (ret != TRUE) {
 			LFlush();
 		}

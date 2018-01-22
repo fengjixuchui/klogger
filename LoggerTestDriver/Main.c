@@ -16,13 +16,12 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "Test driver unloaded\n");
 }
 
-
 #define SIZE 15
 #define THREAD_COUNT 3
 #define MSG_COUNT 10000
 
-KSTART_ROUTINE ThreadTestMax;
-VOID ThreadTestMax(PVOID Param)
+KSTART_ROUTINE ThreadTest;
+VOID ThreadTest(PVOID Param)
 {
 	UNREFERENCED_PARAMETER(Param);
 	int i = 0;
@@ -51,13 +50,13 @@ VOID ThreadTestMax(PVOID Param)
 	LClose(h);
 }
 
-void test_max() {
+void test() {
 	HANDLE threads[THREAD_COUNT] = { 0 };
 	int i = 0;
 	NTSTATUS Status;
 	PVOID waitobj[THREAD_COUNT] = { 0 };
 	for (i = 0; i < THREAD_COUNT; i++) {
-		Status = PsCreateSystemThread(&threads[i], 0, NULL, NULL, NULL, ThreadTestMax, NULL);
+		Status = PsCreateSystemThread(&threads[i], 0, NULL, NULL, NULL, ThreadTest, NULL);
 		if (!NT_SUCCESS(Status))
 			return;
 	}
@@ -69,9 +68,9 @@ void test_max() {
 		ZwClose(threads[i]);
 	}
 
+	// it's not good code, but it's for testing
 	for (i = 0; i < THREAD_COUNT; i++)
 		Status = KeWaitForSingleObject(waitobj[i], Executive, KernelMode, FALSE, NULL);
-
 
 	for (i = 0; i < THREAD_COUNT; i++)
 		ObDereferenceObject(waitobj[i]);
@@ -85,7 +84,7 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPat
 
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "Test driver initialized\n");
 
-	test_max();
+	test();
 
 	return STATUS_SUCCESS;
 }

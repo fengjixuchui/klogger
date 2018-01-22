@@ -29,6 +29,69 @@ VOID DriverUnload(PDRIVER_OBJECT DriverObject)
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger unloaded\n");
 }
 
+#define TEST_EXPORT_DRIVER
+#ifdef TEST_EXPORT_DRIVER
+#define SIZE 15
+#define THREAD_COUNT 3
+#define MSG_COUNT 10000
+
+KSTART_ROUTINE ThreadTest;
+VOID ThreadTest(PVOID Param)
+{
+	UNREFERENCED_PARAMETER(Param);
+	int i = 0;
+	size_t hndl = (size_t)PsGetCurrentThreadId();
+	LHANDLE h;
+	char hndl_name[SIZE] = { 0 };
+	KIRQL newirql = DISPATCH_LEVEL;
+	KIRQL oldirql = PASSIVE_LEVEL;
+	int result;
+
+	snprintf(hndl_name, SIZE, "%d", (int)hndl);
+	h = LOpen(hndl_name);
+
+	KeRaiseIrql(newirql, &oldirql);
+
+	for (i = 0; i < MSG_COUNT; i++) {
+		result = LPrint(h, LDBG, "Debug message", sizeof("Debug message"));
+		i++;
+
+		if (result != TRUE)
+			break;
+	}
+
+	KeLowerIrql(oldirql);
+
+	LClose(h);
+}
+
+void test() {
+	HANDLE threads[THREAD_COUNT] = { 0 };
+	int i = 0;
+	NTSTATUS Status;
+	PVOID waitobj[THREAD_COUNT] = { 0 };
+	for (i = 0; i < THREAD_COUNT; i++) {
+		Status = PsCreateSystemThread(&threads[i], 0, NULL, NULL, NULL, ThreadTest, NULL);
+		if (!NT_SUCCESS(Status))
+			return;
+	}
+
+	for (i = 0; i < THREAD_COUNT; i++) {
+		Status = ObReferenceObjectByHandle(threads[i], EVENT_ALL_ACCESS, NULL, KernelMode, &waitobj[i], NULL);
+		if (!NT_SUCCESS(Status))
+			return;
+		ZwClose(threads[i]);
+	}
+
+	// it's not good code, but it's for testing
+	for (i = 0; i < THREAD_COUNT; i++)
+		Status = KeWaitForSingleObject(waitobj[i], Executive, KernelMode, FALSE, NULL);
+
+	for (i = 0; i < THREAD_COUNT; i++)
+		ObDereferenceObject(waitobj[i]);
+}
+#endif TEST_EXPORT_DRIVER
+
 NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPath)
 {
 	LErrorCode Code;
@@ -73,6 +136,10 @@ NTSTATUS STDCALL DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegPat
 		return STATUS_FAILED_DRIVER_ENTRY;
 	}
 	DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "KLogger initialized\n");
+
+#ifdef TEST_EXPORT_DRIVER
+	test();
+#endif
 
 	return STATUS_SUCCESS;
 }

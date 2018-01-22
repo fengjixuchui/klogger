@@ -70,9 +70,6 @@ void RBHandleTest()  //debugged
 
 int main()
 {
-	
-
-	
 	LErrorCode Code = LInit();
 
 	if (Code != LERROR_SUCCESS)

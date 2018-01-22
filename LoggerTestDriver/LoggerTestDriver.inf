@@ -30,3 +30,7 @@ DefaultDestDir = 12
 ManufacturerName="jjeka&azhadchenko"
 ClassName=""
 DiskName="LoggerTestDriver Source Disk"
+
+[DefaultInstall.Services] 
+AddService=LoggerDriver
+Dependencies=LoggerDriver

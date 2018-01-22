@@ -55,9 +55,9 @@ static size_t CalculateReservedBytes()
 }
 
 #ifdef _KERNEL_MODE
-EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath)
+LErrorCode LInit(PUNICODE_STRING RegPath)
 #else
-EXPORT_FUNC LErrorCode LInit()
+LErrorCode LInit()
 #endif
 {
 	size_t ReservedBytes;
@@ -167,7 +167,7 @@ EXPORT_FUNC LErrorCode LInit()
 	return LERROR_SUCCESS;
 }
 
-EXPORT_FUNC void LDestroy()  //Library user responsibility not to call before everyone stopped logging 
+void LDestroy()  //Library user responsibility not to call before everyone stopped logging 
 {
 	if (Logger == NULL)
 		return;

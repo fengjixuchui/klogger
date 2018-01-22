@@ -4,6 +4,7 @@ TARGETTYPE=EXPORT_DRIVER
 
 C_DEFINES=$(C_DEFINES) -D__EXPORT_DRIVER -D_KERNEL_MODE
 
+DLLDEF=LoggerDriver.def
 SOURCES= \
 	../Logger.c \
 	../RingBuffer.c \

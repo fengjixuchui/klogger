@@ -33,7 +33,7 @@
 #endif
 
 #ifdef __EXPORT_DRIVER
-	#define EXPORT_FUNC __declspec (dllexport)
+	#define EXPORT_FUNC
 #else
 	#define EXPORT_FUNC __declspec (dllimport)
 #endif
@@ -65,11 +65,11 @@ typedef enum
 } LErrorCode;
 
 #ifdef _KERNEL_MODE
-EXPORT_FUNC LErrorCode LInit(PUNICODE_STRING RegPath);
+LErrorCode LInit(PUNICODE_STRING RegPath);
 #else
-EXPORT_FUNC LErrorCode LInit();
+LErrorCode LInit();
 #endif
-EXPORT_FUNC void LDestroy();
+void LDestroy();
 EXPORT_FUNC BOOL LIsInitialized();
 EXPORT_FUNC LHANDLE LOpen(const char* Name);
 EXPORT_FUNC void LClose(LHANDLE Handle);

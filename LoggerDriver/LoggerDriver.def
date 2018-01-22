@@ -1,1 +1,11 @@
-LIBRARY   KLOGGER  
+LIBRARY   LoggerDriver  
+
+EXPORTS
+  DllInitialize PRIVATE
+  DllUnload PRIVATE
+  LIsInitialized
+  LOpen
+  LClose
+  LPrint
+  LFlush
+  __String

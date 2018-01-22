@@ -29,7 +29,6 @@ static size_t CalculateReservedBytes();
 #define MAX_IDENTIFICATOR_MEMORY_SIZE (MAX_IDENTIFICATOR_NAME_SIZE + 1)
 #define MIN_RING_BUFFER_SIZE 1024
 
-#define LOG_FORMAT "%3s [%02u.%02u.%02u %02u:%02u:%02u:%03u] %-" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s | "
 #define LOG_FULL_FORMAT "\nLog is full! %" STR(MAX_IDENTIFICATOR_NAME_SIZE) "s log message was clipped\n"
 #define LOG_FULL_STRING_SIZE 1024
 
@@ -341,15 +340,25 @@ static void GetLogLevelString(LogLevel Level, char* LevelString)
 	}
 }
 
-#define MAX_FORMAT_SIZE 128
+static char* IntToString(char* Str, unsigned int Number, size_t NumSymbols)
+{
+	for (int i = (int) NumSymbols - 1; i >= 0; i--)
+	{
+		Str[i] = Number % 10 + '0';
+		Number /= 10;
+	}
+	return Str + NumSymbols;
+}
+
+#define LOG_FORMAT "    [00.00.00 00:00:00:000]           | "
+#define MAX_FORMAT_SIZE sizeof(LogFormat)
 EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t Size)
 {
-
-	BOOL InvalidIdentificator = FALSE;
 	unsigned Time[NUM_TIME_PARAMETERS];
 	char LevelString[4] = "";
 	char* Identificator = "INVALID";
-	char Format[MAX_FORMAT_SIZE] = "";
+	char String[50] = LOG_FORMAT;
+	char* Format = String;
 	size_t FormatSize;
 	size_t Written;
 	RBMSGHandle hndl = { 0 };
@@ -363,11 +372,17 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 		return FALSE;
 	if (Handle >= Logger->IdCount)
 	{
-		LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
-		InvalidIdentificator = TRUE;
+		if(GetIRQL() == PASSIVE_LEVEL)
+			LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log handle %u", (unsigned)Handle);
+		return FALSE;
 	}
-	if (Level >= LOG_LEVEL_NONE)
-		LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+
+	if (Level >= LOG_LEVEL_NONE) 
+	{
+		if (GetIRQL() == PASSIVE_LEVEL)
+			LOG(a, LHANDLE_LOGGER, LERR, "Try to write log. Invalid log level %u", (unsigned)Level);
+		return FALSE;
+	}
 	if (Level < Logger->Level)
 		return TRUE;
 
@@ -378,21 +393,27 @@ EXPORT_FUNC BOOL LPrint(LHANDLE Handle, LogLevel Level, const char* Str, size_t 
 	if ((RBFreeSize(&Logger->RB) * 100 / RBSize(&Logger->RB)) <= Logger->FlushPercent)
 		LSetFlushEvent();
 
-	if (!InvalidIdentificator)
-		Identificator = Logger->Identificators[Handle].name;
-	FormatSize = snprintf(Format, MAX_FORMAT_SIZE, LOG_FORMAT, LevelString, Time[TIME_DAY], Time[TIME_HOUR], Time[TIME_YEAR],
-		Time[TIME_HOUR], Time[TIME_MINUTE], Time[TIME_SECOND], Time[TIME_MILLISECONDS], Identificator);
-	if (FormatSize >= MAX_FORMAT_SIZE)
-		return FALSE; // log format overflow. In this case we can't call LOG. Just return
+	Identificator = Logger->Identificators[Handle].name;
 
+	FormatSize = sizeof (LOG_FORMAT) - 1;
+
+	Format = (char*) RtlCopyMemory(Format, LevelString, 3) + 3 + 2;
+	Format = IntToString(Format, Time[TIME_DAY], 2) + 1;
+	Format = IntToString(Format, Time[TIME_HOUR], 2) + 1;
+	Format = IntToString(Format, Time[TIME_YEAR], 2) + 1;
+	Format = IntToString(Format, Time[TIME_HOUR], 2) + 1;
+	Format = IntToString(Format, Time[TIME_MINUTE], 2) + 1;
+	Format = IntToString(Format, Time[TIME_SECOND], 2) + 1;
+	Format = IntToString(Format, Time[TIME_MILLISECONDS], 3) + 2;
+	RtlCopyMemory(Format, Identificator, MIN(9, strlen(Identificator)));
 	
-	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 2)) {
+	if (!RBReceiveHandle(&Logger->RB, &hndl, FormatSize + Size + 1)) {
 		LogFull(Handle);
 		return FALSE;
 	}
-	Written = RBHandleWrite(&Logger->RB, &hndl, Format, FormatSize);
+	Written = RBHandleWrite(&Logger->RB, &hndl, String, FormatSize);
 	Written = RBHandleWrite(&Logger->RB, &hndl, Str, Size);
-	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 2);
+	Written = RBHandleWrite(&Logger->RB, &hndl, NewLine, 1);
 	RBHandleClose(&Logger->RB, &hndl);
 
 	return TRUE;
